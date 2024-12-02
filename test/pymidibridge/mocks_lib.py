@@ -23,3 +23,12 @@ class MockOs:
             "source": source,
             "target": target
         })
+
+
+class MockWriter:
+    def __init__(self):
+        self.contents = ""
+
+    def write(self, data):
+        self.contents += data
+

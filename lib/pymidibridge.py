@@ -4,8 +4,8 @@
 #
 ###################################################################################################################
 
+from sys import exit
 from os import rename
-from random import randrange
 
 from adafruit_midi.system_exclusive import SystemExclusive
 
@@ -55,6 +55,9 @@ PMB_DATA_MESSAGE = bytes([0x03])
 # ]
 PMB_FINISH_MESSAGE = bytes([0x04])
 
+# Message to reboot
+PMB_REBOOT_MESSAGE = bytes([0x66])
+
 
 ####################################################################################################################
 
@@ -64,9 +67,11 @@ _PMB_PREFIXES_LENGTH = 1
 
 # Size of the chunk index (BEFORE packing! Therefore, 3 bytes will use 4 bytes in the end.)
 _PMB_CHUNK_INDEX_SIZE_BYTES = 3
+_PMB_CHUNK_INDEX_SIZE_BYTES_RAW = 4
 
-# Length of the random file id in half-bytes
-_PMB_FILE_ID_LENGTH_BYTES = 2
+# Length of the random file id (BEFORE packing! Therefore, 3 bytes will use 4 bytes in the end.)
+_PMB_FILE_ID_LENGTH_BYTES = 3
+_PMB_FILE_ID_LENGTH_BYTES_RAW = 4
 
 # Length of the checksum in the message. Must fit for 16 bits, so we need at least 3 MIDI half-bytes.
 _PMB_CHECKSUM_LENGTH_BYTES = 3
@@ -79,14 +84,17 @@ _PMB_CHECKSUM_LENGTH_BYTES = 3
 # which provides a send(midi_message) method, and the receive method must be called on every incoming message.
 class PyMidiBridge:
 
-    def __init__(self, midi, temp_file_path):
+    _NEXT_ID = 1   # Next file ID
+
+    def __init__(self, midi, temp_file_path, read_chunk_size = 1024):
         self._midi = midi
         self._temp_file_path = temp_file_path
+        self._read_chunk_size = read_chunk_size
 
         self._write_file_path = None
         self._write_file_id = None
         self._write_file = None
-        self._last_chunk_index = 0    
+        self._last_chunk_index = -1  
 
     ## Send Messages ##########################################################################################################
 
@@ -119,10 +127,14 @@ class PyMidiBridge:
                 file_id_bytes = file_id_bytes
             )
 
-            # Transfer line by line
+            # Transfer in chunks
             chunk_index = 0
-            for line in file:
-                self._send_line(file_id_bytes, line, chunk_index)
+            while(True):
+                chunk = file.read(self._read_chunk_size)
+                if not chunk:
+                    break
+
+                self._send_line(file_id_bytes, chunk, chunk_index)
                 chunk_index += 1
 
             file.close()
@@ -172,9 +184,11 @@ class PyMidiBridge:
             )
         )
 
-    # Generate a random file ID
+    # Generate a random file ID (4 bytes)
     def _generate_file_id(self):
-        return bytes([randrange(0, 127), randrange(0, 127)])
+        result = self._number_2_bytes(self._NEXT_ID, _PMB_FILE_ID_LENGTH_BYTES)
+        self._NEXT_ID += 1
+        return result
     
     ## Receive Messages ##########################################################################################################
 
@@ -190,6 +204,10 @@ class PyMidiBridge:
         # This determines what the sender of the message wants to do
         command_id = midi_message.data[:_PMB_PREFIXES_LENGTH]
 
+        # Receive: Reboot
+        if command_id == PMB_REBOOT_MESSAGE:
+            exit()
+
         # Next there is the checksum for all messages
         checksum_bytes = midi_message.data[_PMB_PREFIXES_LENGTH:_PMB_PREFIXES_LENGTH + _PMB_CHECKSUM_LENGTH_BYTES]
         payload = midi_message.data[_PMB_PREFIXES_LENGTH + _PMB_CHECKSUM_LENGTH_BYTES:]
@@ -201,19 +219,19 @@ class PyMidiBridge:
         if command_id == PMB_REQUEST_MESSAGE:
             # Send file
             self.send(
-                path = self._parse_string(payload)
+                path = self._bytes_2_string(payload)
             )
             return
 
         # All other messages have a file ID coming next, so we split that off the payload
-        file_id_bytes = payload[:_PMB_FILE_ID_LENGTH_BYTES]
-        payload = payload[_PMB_FILE_ID_LENGTH_BYTES:]
+        file_id_bytes = payload[:_PMB_FILE_ID_LENGTH_BYTES_RAW]
+        payload = payload[_PMB_FILE_ID_LENGTH_BYTES_RAW:]
 
         # Receive: Start of transmission
         if command_id == PMB_START_MESSAGE:
             self._write_file_id = file_id_bytes
             self._write_file_path = self._bytes_2_string(payload)
-            self._last_chunk_index = 0
+            self._last_chunk_index = -1
                         
             # Clear temporary file if exists
             open(self._temp_file_path, "w").close()
@@ -222,10 +240,10 @@ class PyMidiBridge:
             self._write_file = open(self._temp_file_path, "a")
 
         # Receive: Data
-        elif command_id == PMB_DATA_MESSAGE:
+        elif command_id == PMB_DATA_MESSAGE:            
             if file_id_bytes == self._write_file_id and self._write_file:
-                index = self._bytes_2_number(payload[:_PMB_CHUNK_INDEX_SIZE_BYTES])
-                str_data = self._bytes_2_string(payload[_PMB_CHUNK_INDEX_SIZE_BYTES:])
+                index = self._bytes_2_number(payload[:_PMB_CHUNK_INDEX_SIZE_BYTES_RAW])
+                str_data = self._bytes_2_string(payload[_PMB_CHUNK_INDEX_SIZE_BYTES_RAW:])
                
                 # Only accept if the chunk index is the correct one for the next chunk
                 if index == self._last_chunk_index + 1:
@@ -236,20 +254,19 @@ class PyMidiBridge:
 
         # Receive: End of transmission
         elif command_id == PMB_FINISH_MESSAGE:
-            if self._write_file:
-                # Close temporary file first
-                self._write_file.close()
-                self._write_file = None
-
-                # If file IDs match and all chunks have been received, 
-                # move the temporary file to its target path
-                if file_id_bytes == self._write_file_id:                    
+            # If file IDs match and all chunks have been received, 
+            # move the temporary file to its target path
+            if file_id_bytes == self._write_file_id:                
+                amount_chunks = self._bytes_2_number(payload)
+                
+                if amount_chunks == self._last_chunk_index + 1:
                     self._write_file_id = None
 
-                    amount_chunks = self._bytes_2_number(payload)
-                    
-                    if amount_chunks == self._last_chunk_index + 1:
-                        rename(self._temp_file_path, self._write_file_path)
+                    # Close temporary file
+                    self._write_file.close()
+                    self._write_file = None
+
+                    rename(self._temp_file_path, self._write_file_path)
 
     ## Checksum ###########################################################################################################
 

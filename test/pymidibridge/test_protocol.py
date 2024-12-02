@@ -11,7 +11,7 @@ with patch.dict(sys.modules, {
 }):
     from adafruit_midi.system_exclusive import SystemExclusive
 
-    from lib.pymidibridge import PyMidiBridge, PMB_MANUFACTURER_ID, PMB_REQUEST_MESSAGE
+    from lib.pymidibridge import PyMidiBridge, PMB_MANUFACTURER_ID, PMB_REQUEST_MESSAGE, PMB_REBOOT_MESSAGE
 
 
 class TestProtocol(unittest.TestCase):
@@ -19,9 +19,31 @@ class TestProtocol(unittest.TestCase):
     def test_send_receive(self):
         self._test_send_receive(
             temp_path = ".tmppath",
-            path = "/foo/path/to/bar.txt",
-            data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>"
+            path = "foo",
+            data = " "
         )
+
+        # Ca. 180 bytes
+        self._test_send_receive(
+            temp_path = ".tmppath",
+            path = "/foo/path/to/bar.txt",
+            data = "| Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>"
+        )
+
+        # Bit over 2 kB
+        self._test_send_receive(
+            temp_path = ".tmppath",
+            path = "/foo/path/to/bar.txt",
+            data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>"
+        )
+
+        # Bit under 5kB
+        self._test_send_receive(
+            temp_path = ".tmppath",
+            path = "/foo/path/to/bar.txt",
+            data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<> | Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>"
+        )
+
 
     def _test_send_receive(self, temp_path, path, data):
         MockOs.RENAME_CALLS = []
@@ -32,31 +54,97 @@ class TestProtocol(unittest.TestCase):
             temp_file_path = temp_path
         )
 
-        # Let the bridge send a mocked file
+        # Get a request message for the path
+        bridge.request(path)
+        msg_request = midi.messages_sent[0]
+
+        # Get some messages related to another file
+        with patch("builtins.open", mock_open(read_data = "temporary")):
+            bridge.send("foo")
+            msgs_other_file = midi.messages_sent
+
+        self.assertGreaterEqual(len(msgs_other_file), 3)
+
+        # Reset midi mock
+        midi.messages_sent = []
+
+        # Let the bridge send the data
         with patch("builtins.open", mock_open(read_data = data)) as mock_file_open:
-            bridge.send(path)
+            bridge.receive(msg_request)
 
             mock_file_open.assert_called_with(path, "r")
 
         # Are there any messages?
-        self.assertGreater(len(midi.messages_sent), 0)
-
+        self.assertGreaterEqual(len(midi.messages_sent), 3)
+        
         # Feed back the generated MIDI messages to the bridge, yielding the input data again
-        with patch("builtins.open", mock_open()) as mock_file_open:        
+        writer = MockWriter()
+        opener = mock_open()
+        opener.return_value.write = writer.write
+
+        with patch("builtins.open", opener) as mock_file_open:        
             for msg in midi.messages_sent:
                 bridge.receive(msg)
 
-            #mock_file_open.assert_called_with(temp_path, "w")
-            mock_file_open.assert_called_with(temp_path, "a")
-            
-            handle = mock_file_open()
-            handle.write.assert_called_with(data)
+                # Put in some invalid messages too
+                bridge.receive(
+                    SystemExclusive(
+                        manufacturer_id = [0x00, 0x01, 0x02],
+                        data = [0x00, 0xac, 0xdc]
+                    )
+                )
 
-            self.assertEqual(MockOs.RENAME_CALLS, [{ 
-                "source": temp_path,
-                "target": path
-            }])
+                bridge.receive(None)
 
+                # Transmission errors
+                msg_invalid = SystemExclusive(
+                    manufacturer_id = msg.manufacturer_id,
+                    data = [msg.data[i] if i != 1 else msg.data[i - 1] for i in range(len(msg.data))]
+                )
+
+                bridge.receive(msg_invalid)
+
+                # Different file ID: Take the finish message from the other file
+                bridge.receive(msgs_other_file[len(msgs_other_file)-1])
+                
+                # Different file ID: Take a data message from the other file
+                bridge.receive(msgs_other_file[len(msgs_other_file)-2])
+
+                # Invalid chunk index: Repeat first chunk
+                bridge.receive(midi.messages_sent[1])
+
+                # Invalid amount of chunks: Send closing message before finish
+                bridge.receive(midi.messages_sent[len(midi.messages_sent) - 1])
+
+        # Check calls
+        mock_file_open.assert_has_calls([
+            unittest.mock.call(temp_path, "w"),
+            unittest.mock.call().close(),
+            unittest.mock.call(temp_path, "a"),
+            unittest.mock.call().close(),
+        ])
+
+        self.assertEqual(MockOs.RENAME_CALLS, [{ 
+            "source": temp_path,
+            "target": path
+        }])        
+
+        # Compare results
+        self.assertEqual(writer.contents, data)
+
+
+    def test_receive_reboot(self):
+        bridge = PyMidiBridge(None, None)
+
+        with self.assertRaises(SystemExit):
+            bridge.receive(
+                SystemExclusive(
+                    manufacturer_id = PMB_MANUFACTURER_ID,
+                    data = PMB_REBOOT_MESSAGE
+                )
+            )
+
+    
     def test_send_no_path(self):
         bridge = PyMidiBridge(
             midi = MockMidi(),
@@ -68,7 +156,7 @@ class TestProtocol(unittest.TestCase):
 
         with self.assertRaises(Exception):
             bridge.send("")
-
+        
 
 ############################################################################################################
 
@@ -113,3 +201,21 @@ class TestProtocol(unittest.TestCase):
 
         with self.assertRaises(Exception):
             bridge.request("")
+
+
+############################################################################################################
+
+
+    def test_generate_file_id(self):
+        bridge = PyMidiBridge(None, None)
+        buffer = []
+
+        for i in range(100):
+            file_id = bridge._generate_file_id()
+
+            self.assertEqual(len(file_id), 4)
+            self.assertNotIn(file_id, buffer)
+
+            buffer.append(file_id)            
+
+
