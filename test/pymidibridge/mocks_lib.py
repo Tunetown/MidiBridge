@@ -12,3 +12,14 @@ class MockMidi:
 
     def send(self, midi_message):
         self.messages_sent.append(midi_message)
+
+
+class MockOs:
+        
+    RENAME_CALLS = []
+
+    def rename(source, target):
+        MockOs.RENAME_CALLS.append({
+            "source": source,
+            "target": target
+        })

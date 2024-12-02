@@ -11,6 +11,8 @@ from adafruit_midi.system_exclusive import SystemExclusive
 
 ####################################################################################################################
 
+# Bridge version
+PMB_VERSION = "0.1.0"
 
 # Manufacturer ID of PyMidiBridge
 PMB_MANUFACTURER_ID = [0x00, 0xac, 0xdc]
@@ -80,7 +82,7 @@ class PyMidiBridge:
     def __init__(self, midi, temp_file_path):
         self._midi = midi
         self._temp_file_path = temp_file_path
-        
+
         self._write_file_path = None
         self._write_file_id = None
         self._write_file = None
@@ -210,7 +212,7 @@ class PyMidiBridge:
         # Receive: Start of transmission
         if command_id == PMB_START_MESSAGE:
             self._write_file_id = file_id_bytes
-            self._write_file_path = self._parse_string(payload)
+            self._write_file_path = self._bytes_2_string(payload)
             self._last_chunk_index = 0
                         
             # Clear temporary file if exists
@@ -246,7 +248,7 @@ class PyMidiBridge:
 
                     amount_chunks = self._bytes_2_number(payload)
                     
-                    if amount_chunks == self._current_index + 1:
+                    if amount_chunks == self._last_chunk_index + 1:
                         rename(self._temp_file_path, self._write_file_path)
 
     ## Checksum ###########################################################################################################

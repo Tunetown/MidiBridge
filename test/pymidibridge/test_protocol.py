@@ -6,7 +6,8 @@ from .mocks_lib import *
 
 # Import subject under test
 with patch.dict(sys.modules, {
-    "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive(),    
+    "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive(),
+    "os": MockOs
 }):
     from adafruit_midi.system_exclusive import SystemExclusive
 
@@ -15,40 +16,62 @@ with patch.dict(sys.modules, {
 
 class TestProtocol(unittest.TestCase):
 
-    def test_send(self):
+    def test_send_receive(self):
+        self._test_send_receive(
+            temp_path = ".tmppath",
+            path = "/foo/path/to/bar.txt",
+            data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>"
+        )
+
+    def _test_send_receive(self, temp_path, path, data):
+        MockOs.RENAME_CALLS = []
         midi = MockMidi()
 
         bridge = PyMidiBridge(
             midi = midi,
-            temp_file_path = None
+            temp_file_path = temp_path
         )
 
-        path = "/foo/path/to/bar.txt"
-        data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;€<>"
-
+        # Let the bridge send a mocked file
         with patch("builtins.open", mock_open(read_data = data)) as mock_file_open:
             bridge.send(path)
 
             mock_file_open.assert_called_with(path, "r")
 
+        # Are there any messages?
         self.assertGreater(len(midi.messages_sent), 0)
 
-        # Feed back the generated MIDI messages to the bridge
-        with patch("builtins.open", mock_open()) as mock_file_open:
+        # Feed back the generated MIDI messages to the bridge, yielding the input data again
+        with patch("builtins.open", mock_open()) as mock_file_open:        
             for msg in midi.messages_sent:
                 bridge.receive(msg)
 
-            mock_file_open.assert_called_with(path, "w")
-            mock_file_open.assert_called_with(path, "a")
-
-            mock_file_open.assert_called_once_with(path, "w")
-            mock_file_open.assert_called_once_with(path, "a")
+            #mock_file_open.assert_called_with(temp_path, "w")
+            mock_file_open.assert_called_with(temp_path, "a")
             
             handle = mock_file_open()
-            handle.write.assert_called_once_with(data)
+            handle.write.assert_called_with(data)
+
+            self.assertEqual(MockOs.RENAME_CALLS, [{ 
+                "source": temp_path,
+                "target": path
+            }])
+
+    def test_send_no_path(self):
+        bridge = PyMidiBridge(
+            midi = MockMidi(),
+            temp_file_path = "foo"
+        )
+
+        with self.assertRaises(Exception):
+            bridge.send(None)
+
+        with self.assertRaises(Exception):
+            bridge.send("")
 
 
 ############################################################################################################
+
 
     def test_request_file(self):
         self._test_request_file(" ")
