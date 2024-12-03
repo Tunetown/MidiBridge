@@ -20,60 +20,65 @@ class MockMidiSender:
             )
         )
 
+    @property
+    def last_message(self):
+        return self.messages_sent[len(self.messages_sent) - 1] if self.messages_sent else None
 
+
+class MockFileHandle:
+    def __init__(self, path, mode, read_contents = ""):
+        self.path = path
+        self.mode = mode
+        self.read_contents = read_contents
+        self.write_contents = ""
+        self.closed = False
+
+    def __repr__(self):
+        return repr([self.path, self.mode])
+
+    def read(self, amount_bytes):
+        if self.closed:
+            raise Exception("Mock file closed: " + repr(self.path))
+        
+        if self.mode != "r":
+            raise Exception("Mock file not opened for reading: " + repr(self.path))
+
+        if len(self.read_contents) > amount_bytes:
+            ret = self.read_contents[:amount_bytes]
+            self.read_contents = self.read_contents[amount_bytes:]
+            return ret
+        else:
+            ret = self.read_contents
+            self.read_contents = ""
+            return ret
+        
+    def write(self, data):
+        if self.closed:
+            raise Exception("Mock file closed: " + repr(self.path))
+        
+        if self.mode != "a":
+            raise Exception("Mock file not opened for appending: " + repr(self.path))
+
+        self.write_contents += data
+
+    def close(self):
+        self.closed = True
+
+        
 class MockStorageProvider:
-    class MockFileHandle:
-        def __init__(self, path, mode, read_contents = ""):
-            self.path = path
-            self.mode = mode
-            self.read_contents = read_contents
-            self.append_contents = ""
-            self.closed = False
-
-        def __repr__(self):
-            return repr([self.path, self.mode])
-
-        def read(self, amount_bytes):
-            if self.closed:
-                raise Exception("Mock file closed: " + repr(self.path))
-            
-            if self.mode != "r":
-                raise Exception("Mock file not opened for reading: " + repr(self.path))
-
-            if len(self.read_contents) > amount_bytes:
-                ret = self.read_contents[:amount_bytes]
-                self.read_contents = self.read_contents[amount_bytes:]
-                return ret
-            else:
-                ret = self.read_contents
-                self.read_contents = ""
-                return ret
-            
-        def append(self, data):
-            if self.closed:
-                raise Exception("Mock file closed: " + repr(self.path))
-            
-            if self.mode != "a":
-                raise Exception("Mock file not opened for appending: " + repr(self.path))
-
-            self.append_contents += data
-
-        def close(self):
-            self.closed = True
-
 
     def __init__(self):
         self.clear_calls = []
         self.open_calls = []
         self.outputs_size = {}
-        self.read_data = {}
+        self.read_data = {}        
         self.created_handles = []
 
     def clear(self, path):
         self.clear_calls.append(path)
 
     def open(self, path, mode):
-        ret = self.MockFileHandle(
+        ret = MockFileHandle(
             path = path,
             mode = mode,
             read_contents = self.read_data[path] if path in self.read_data else ""
@@ -83,14 +88,17 @@ class MockStorageProvider:
         
         return ret
 
-    def append(self, handle, data):
-        handle.append(data)
-
-    def read(self, handle, amount_bytes):
-        return handle.read(amount_bytes)
-
-    def close(self, handle):
-        handle.close()
-
     def size(self, path):
         return self.outputs_size[path] if path in self.outputs_size else 0
+
+
+class MockEventHandler:
+    def __init__(self):
+        self.last_error = None
+        self.last_ack = None
+
+    def handle(self, msg):
+        self.last_error = msg
+
+    def transfer_finished(self, path):
+        self.last_ack = path
