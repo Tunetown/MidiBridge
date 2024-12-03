@@ -1,0 +1,96 @@
+
+class MockSystemExclusiveMessage:
+    def __init__(self, manufacturer_id = bytes([]), data = bytes([])):
+        self.manufacturer_id = bytes(manufacturer_id)
+        self.data = bytes(data)
+
+    def __repr__(self):
+        return repr([list(self.manufacturer_id), list(self.data)])
+
+
+class MockMidiSender:
+    def __init__(self):
+        self.messages_sent = []
+
+    def send_system_exclusive(self, manufacturer_id, data):
+        self.messages_sent.append(
+            MockSystemExclusiveMessage(
+                manufacturer_id = manufacturer_id,
+                data = data
+            )
+        )
+
+
+class MockStorageProvider:
+    class MockFileHandle:
+        def __init__(self, path, mode, read_contents = ""):
+            self.path = path
+            self.mode = mode
+            self.read_contents = read_contents
+            self.append_contents = ""
+            self.closed = False
+
+        def __repr__(self):
+            return repr([self.path, self.mode])
+
+        def read(self, amount_bytes):
+            if self.closed:
+                raise Exception("Mock file closed: " + repr(self.path))
+            
+            if self.mode != "r":
+                raise Exception("Mock file not opened for reading: " + repr(self.path))
+
+            if len(self.read_contents) > amount_bytes:
+                ret = self.read_contents[:amount_bytes]
+                self.read_contents = self.read_contents[amount_bytes:]
+                return ret
+            else:
+                ret = self.read_contents
+                self.read_contents = ""
+                return ret
+            
+        def append(self, data):
+            if self.closed:
+                raise Exception("Mock file closed: " + repr(self.path))
+            
+            if self.mode != "a":
+                raise Exception("Mock file not opened for appending: " + repr(self.path))
+
+            self.append_contents += data
+
+        def close(self):
+            self.closed = True
+
+
+    def __init__(self):
+        self.clear_calls = []
+        self.open_calls = []
+        self.outputs_size = {}
+        self.read_data = {}
+        self.created_handles = []
+
+    def clear(self, path):
+        self.clear_calls.append(path)
+
+    def open(self, path, mode):
+        ret = self.MockFileHandle(
+            path = path,
+            mode = mode,
+            read_contents = self.read_data[path] if path in self.read_data else ""
+        )
+
+        self.created_handles.append(ret)
+        
+        return ret
+
+    def append(self, handle, data):
+        handle.append(data)
+
+    def read(self, handle, amount_bytes):
+        return handle.read(amount_bytes)
+
+    def close(self, handle):
+        handle.close()
+
+    def size(self, path):
+        return self.outputs_size[path] if path in self.outputs_size else 0

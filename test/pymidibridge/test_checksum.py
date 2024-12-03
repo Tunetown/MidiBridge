@@ -1,14 +1,9 @@
-import sys
 import unittest
-from unittest.mock import patch   # Necessary workaround! Needs to be separated.
-
-from .mocks_lib import *
 
 # Import subject under test
-with patch.dict(sys.modules, {
-    "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive(),    
-}):
-    from lib.pymidibridge import PyMidiBridge
+from lib.pymidibridge import PyMidiBridge
+
+from .mocks import *
 
 
 class TestChecksum(unittest.TestCase):
