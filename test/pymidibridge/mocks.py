@@ -68,14 +68,10 @@ class MockFileHandle:
 class MockStorageProvider:
 
     def __init__(self):
-        self.clear_calls = []
         self.open_calls = []
         self.outputs_size = {}
         self.read_data = {}        
         self.created_handles = []
-
-    def clear(self, path):
-        self.clear_calls.append(path)
 
     def open(self, path, mode):
         ret = MockFileHandle(

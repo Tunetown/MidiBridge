@@ -127,10 +127,10 @@ class PyMidiBridge:
         # Check if file exists and see how many chunks we will need
         file_size = self._storage.size(path)
         if file_size < 0:
-            raise Exception("File " + path + " not found")
+            raise Exception(repr(path) + " not found")
         
         if file_size == 0:
-            raise Exception("File " + path + " is empty")
+            raise Exception(repr(path) + " is empty")
         
         amount_chunks = ceil(file_size / self._read_chunk_size)
 
@@ -160,7 +160,7 @@ class PyMidiBridge:
     # Sends a MIDI message to request a file
     def request(self, path):
         if not path:
-            raise Exception("No path")
+            raise Exception() #"No path")
         
         payload = self._string_2_bytes(path)
         checksum = self._get_checksum(payload)
@@ -282,9 +282,6 @@ class PyMidiBridge:
         # Path to write to
         write_file_path = self._bytes_2_string(payload[_PMB_CHUNK_INDEX_SIZE_HALFBYTES:])
                                 
-        # Clear file if exists            
-        self._storage.clear(write_file_path)
-
         # Open file for appending
         self._write_handle = self._storage.open(write_file_path, "a")
 
@@ -299,7 +296,7 @@ class PyMidiBridge:
     
         # Only accept if the chunk index is the one expected
         if index != self._write_last_chunk + 1:
-            raise Exception("Received invalid chunk " + repr(index) + ", expected " + repr(self._write_last_chunk + 1))
+            raise Exception("Invalid chunk") #"Invalid chunk " + repr(index) + ", expected " + repr(self._write_last_chunk + 1))
         
         self._write_last_chunk = index
 
@@ -468,10 +465,6 @@ class PyMidiBridge:
 #     def size(self, path):
 #         return 0
 # 
-#     # Must clear the contents of the file if exists
-#     def clear(self, path):
-#         pass
-#
 #     # Must return an opened file handle. See StorageFileHandle class.
 #     def open(self, path, mode):
 #         return None

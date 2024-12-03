@@ -2,8 +2,6 @@ import unittest
 
 # Import subject under test
 from lib.pymidibridge import *
-
-
 from .mocks import *
 
 
@@ -125,13 +123,11 @@ class TestProtocol(unittest.TestCase):
 
             # Invalid chunk index: Repeat first chunk (must issue an error message)
             bridge.receive(self._generate_invalid_chunk(msg))
-            self._evaluate_error(midi.last_message, "invalid chunk")
+            self._evaluate_error(midi.last_message, "Invalid chunk")
 
             failure_tests_done = True
 
         # Check calls
-        self.assertEqual(storage.clear_calls[0], path)
-
         self.assertEqual(len(storage.created_handles), 2)
         self.assertEqual(storage.created_handles[1].path, path)
         self.assertEqual(storage.created_handles[1].mode, "a")
