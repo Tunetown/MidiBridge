@@ -1,6 +1,6 @@
 ###################################################################################################################
 # 
-# This script can transfer file data from/to a MIDI connection on CircuitPy boards.
+# This script can transfer file (or other) data from/to a MIDI connection on CircuitPy boards.
 #
 ###################################################################################################################
 
@@ -74,7 +74,7 @@ _PMB_PREFIXES_LENGTH_HALFBYTES = 1
 _PMB_CHUNK_INDEX_SIZE_FULLBYTES = 3
 _PMB_CHUNK_INDEX_SIZE_HALFBYTES = 4
 
-# Length of the random file id (BEFORE packing! Therefore, 3 bytes will use 4 bytes in the end.)
+# Length of the file id (BEFORE packing! Therefore, 3 bytes will use 4 bytes in the end.)
 _PMB_FILE_ID_LENGTH_FULLBYTES = 3
 _PMB_FILE_ID_LENGTH_HALFBYTES = 4
 
@@ -198,7 +198,7 @@ class PyMidiBridge:
         )
 
 
-    # Generate a random file ID (4 bytes)
+    # Generate a file ID (4 bytes)
     def _generate_file_id(self):
         result = self._number_2_bytes(self._NEXT_ID, _PMB_FILE_ID_LENGTH_FULLBYTES)        
         self._NEXT_ID += 1        
