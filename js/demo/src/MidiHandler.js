@@ -19,8 +19,6 @@ class MidiHandler {
 
     #midiAccess = null;       // MIDIAccess instance
     //#callbacks = null;
-    //#bridge = null            // JsMidiBridge instance
-    //#listeningPort = null
 
     constructor(midiAccess, callbacks) {
         this.#midiAccess = midiAccess;
@@ -55,6 +53,9 @@ class MidiHandler {
         }        
     }
 
+    /**
+     * Set up a port for productive use
+     */
     async #setupPort(port) {
         const bridge = new JsMidiBridge();
 
@@ -107,6 +108,9 @@ class MidiHandler {
         }
     }
 
+    /**
+     * Stop listening to a port
+     */
     #unlisten(port) {
         port.onmidimessage = null;
     }
