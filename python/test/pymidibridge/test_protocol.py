@@ -315,16 +315,16 @@ class TestProtocol(unittest.TestCase):
 ############################################################################################################
 
 
-    def test_generate_file_id(self):
+    def test_generate_transmission_id(self):
         bridge = PyMidiBridge(None, None)
         buffer = []
 
         for i in range(100):
-            file_id = bridge._generate_file_id()
+            transmission_id = bridge._generate_transmission_id()
 
-            self.assertEqual(len(file_id), 4)
-            self.assertNotIn(file_id, buffer)
+            self.assertEqual(len(transmission_id), 4)
+            self.assertNotIn(transmission_id, buffer)
 
-            buffer.append(file_id)            
+            buffer.append(transmission_id)            
 
 
