@@ -1,0 +1,13 @@
+services:
+  test:
+    build: .
+    container_name: apache-test-jsmidibridge
+    ports:
+      - "80:80"
+    volumes:
+      - ./htdocs:/var/www/html
+      - ./apache2-conf:/etc/apache2/sites-available
+      - ./apache2-loglog:/var/log/apache2
+      - ../src:/var/www/html/src
+      - ../../python/test/data:/var/www/html/data
+  

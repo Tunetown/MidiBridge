@@ -113,6 +113,7 @@ class JsMidiBridge {
 
 	#writeFileId = null;       // Internal file ID currently received.
     #writeBuffer = "";         // Write buffer
+    #writeFilePath = "";       // File path for receiving
     #writeAmountChunks = -1;   // Amount of chunks to be received
     #writeLastChunk = -1;      // Counts received chunks
     
@@ -131,7 +132,7 @@ class JsMidiBridge {
 	 */
     async send(path) {
         if (!path) {
-			throw new Exception("No path");
+			throw new Error("No path");
 		}
 
         // Generate new file ID (internally used)
@@ -140,7 +141,7 @@ class JsMidiBridge {
         // Check if file exists and see how many chunks we will need
         const data = await this.callbacks.execute("file.get", path);
         if (!data) {
-            throw new Exception(path + " not found or empty");
+            throw new Error(path + " not found or empty");
         }        
         const amountChunks = Math.ceil(data.length / this.#readChunkSize);
 
@@ -156,7 +157,9 @@ class JsMidiBridge {
         while(True) {
             const chunk = data.substring(0, this.#readChunkSize);
             data = data.substring(this.#readChunkSize);
-            if (!chunk) break;
+            if (!chunk) {
+				break;
+			}
 
             await this.#sendChunk(fileIdBytes, chunk, chunkIndex);
             ++chunkIndex;
@@ -168,7 +171,7 @@ class JsMidiBridge {
 	 */ 
     async request(path) {
         if (!path) {
-			throw new Exception("No path");
+			throw new Error("No path");
 		}
         
         const payload = this.string2bytes(path);
@@ -230,10 +233,14 @@ class JsMidiBridge {
 	 */
     async receive(midiMessage) {
         // Check if the message has the necessary attributes
-        if (!midiMessage.hasOwn("manufacturer_id") || !midiMessage.hasOwn("data")) return;
+        if (!midiMessage.hasOwn("manufacturer_id") || !midiMessage.hasOwn("data")) {
+			return;
+		}
         
         // Is the message for us?
-        if (JSON.stringify(midiMessage.manufacturerId) != JSON.stringify(JMB_MANUFACTURER_ID)) return;
+        if (JSON.stringify(midiMessage.manufacturerId) != JSON.stringify(JMB_MANUFACTURER_ID)) {
+			return;
+		}
         
         // This determines what the sender of the message wants to do
         const command_id = JSON.stringify(midiMessage.data.slice(
@@ -253,7 +260,7 @@ class JsMidiBridge {
         try {
             // Checksum test
             if (this.getChecksum(payload) != checksumBytes) {
-                throw new Exception("Checksum mismatch");
+                throw new Error("Checksum mismatch");
             }
 
             // Receive: Message to request sending a file
@@ -311,17 +318,19 @@ class JsMidiBridge {
         // Reset state
         this.#writeLastChunk = -1;
         this.#writeFileId = fileIdBytes;
+        this.#writeBuffer = "";
         
         // Amount of chunks overall
         this.#writeAmountChunks = this.bytes2number(payload.slice(0, JMB_CHUNK_INDEX_SIZE_HALFBYTES - 1));
 
         // Path to write to
-        const writeFilePath = this.bytes2string(payload.slice(JMB_CHUNK_INDEX_SIZE_HALFBYTES));
+        this.#writeFilePath = this.bytes2string(payload.slice(JMB_CHUNK_INDEX_SIZE_HALFBYTES));
                                 
-        // Open file for appending
-        await this.callbacks.execute("file.write.open", {
-			path: writeFilePath,
-			fileId: fileIdBytes
+        // Signal start of transmission
+        await this.callbacks.execute("receive.start", {
+			path: this.#writeFilePath,
+			fileId: fileIdBytes,
+			numChunks: this.#writeAmountChunks
 		});  
 	}      
 
@@ -337,17 +346,22 @@ class JsMidiBridge {
     
         // Only accept if the chunk index is the one expected
         if (index != this.#writeLastChunk + 1) {
-            throw new Exception("Invalid chunk " + index + ", expected " + (this.write_last_chunk + 1));
+            throw new Error("Invalid chunk " + index + ", expected " + (this.write_last_chunk + 1));
         }
         
         this.#writeLastChunk = index;
 
         // Append to file
-        await this.callbacks.execute("file.append", {
-			fileId: fileIdBytes,
-			data: str_data
-		});
-
+        this.#writeBuffer += str_data;
+        
+        await this.callbacks.execute("receive.progress", {
+			path: this.#writeFilePath,
+			fileId: this.#writeFileId,
+			chunk: index,
+			numChunks: this.#writeAmountChunks,
+			//chunk: str_data
+		});  
+        
         // If this has been the last chunk, close the file handle and send ack message
         if (index == this.#writeAmountChunks - 1) {
             await this.#receiveFinish();
@@ -358,9 +372,17 @@ class JsMidiBridge {
 	 * Finish receiving and send acknowledge message
 	 */
     async #receiveFinish() {
+        await this.callbacks.execute("receive.finish", {
+			fileId: fileIdBytes,
+			path: this.#writeFilePath,
+			data: this.#writeBuffer,
+			numChunks: this.#writeAmountChunks	
+		});
+
         await this.#sendAckMessage(this.#writeFileId);
         
-        this.#writeFileId = null;
+        this.#writeFileId = null;      
+        this.#writeBuffer = "";
     }
 
 
@@ -408,10 +430,14 @@ class JsMidiBridge {
 	 * Get checksum of bytes (only returns MIDI half-bytes)
 	 */
     getChecksum(data) {
+		if (!(data instanceof Uint8Array)) {
+			throw new Error("Invalid input data, must be an Uint8Array");
+		}
+		
         if (!data) {
 			ret = [];
-			for(i=0; i<JMB_CHECKSUM_LENGTH_HALFBYTES; ++i) {
-				ret.push(0x00);
+			for(let i = 0; i < JMB_CHECKSUM_LENGTH_HALFBYTES; ++i) {
+				ret.push(0);
 			}
             return ret;
         }
@@ -426,9 +452,11 @@ class JsMidiBridge {
 	 */
     #crc16(data, poly = 0x6756) {
         let crc = 0xFFFF;
-        for (b of data) {
+        
+        for (const b of data) {
             let cur_byte = 0xFF & b;
-            for (x=0; x<8; ++x) {
+            
+            for (let x = 0; x < 8; ++x) {
                 if ((crc & 0x0001) ^ (cur_byte & 0x0001)) {
 					crc = (crc >> 1) ^ poly;
 				} else {
@@ -437,6 +465,7 @@ class JsMidiBridge {
                 cur_byte >>= 1;
             }
         }
+        
         crc = (~crc & 0xFFFF);
         crc = (crc << 8) | ((crc >> 8) & 0xFF);
 
@@ -460,50 +489,46 @@ class JsMidiBridge {
 	 * Bytearray to string conversion
 	 */ 
     bytes2string(data) {
-		bytes = this.unpackBytes(data);
+		const bytes = this.unpackBytes(data);
 		let utf8Decode = new TextDecoder();
-		return utf8Decode.decode(bytes);
+		return utf8Decode.decode(new Uint8Array(bytes));
     }    
 
     /**
 	 * Number to bytearray conversion (only returns MIDI half-bytes)
 	 */
-    number_2_bytes(num, num_bytes) {
-		if (num_bytes != 4) throw new Exception("Only 4 byte packed numbers supported");
-		if (JMB_NUMBER_ENC_ENDIANESS != 3) throw Exception("Only 3 byte numbers supported");
-		
-		// https://stackoverflow.com/questions/15761790/convert-a-32bit-integer-into-4-bytes-of-data-in-javascript
-		function toBytesInt24(num) {
-		    arr = new Uint8Array([
-		         //(num & 0xff000000) >> 24,
-		         (num & 0x00ff0000) >> 16,
-		         (num & 0x0000ff00) >> 8,
-		         (num & 0x000000ff)
-		    ]);
-		    return arr.buffer;
+    number2bytes(num, numBytes) {	
+		if (numBytes > 4) {
+			throw new Error("JavaScript natively only supports up to 32bit integer arithmentic");
 		}
-        return this.packBytes(toBytesInt24(num));
+			
+		const arr = []
+
+		for(let i = 0; i < numBytes; ++i) {
+			const mask = 0xff << ((numBytes - i - 1) * 8);
+			arr.push(
+				(num & mask) >> ((numBytes - i - 1) * 8)
+			);
+		}
+
+		return this.packBytes(new Uint8Array(arr));
 	}
 
     /**
 	 * Bytes to number conversion
 	 */
-    bytes_2_number(data) {
-		if (num_bytes != 4) throw new Exception("Only 4 byte packed numbers supported");
-		if (JMB_NUMBER_ENC_ENDIANESS != 3) throw Exception("Only 3 byte numbers supported");
-
+    bytes2number(data) {
 		const bytes = this.unpackBytes(data);
+		const numBytes = bytes.length;
 		
-		function fromBytesInt24(numString) {
-			let result=0;
-		    for (let i=2; i>=0; i--) {
-		        result += numString.charCodeAt(2-i)<<(8*i);
-		    }
-		    return result;
-		};
-		
-        return fromBytesInt24(bytes);
-    }
+		let result = 0;
+	    
+	    for (let i = 0; i < numBytes; ++i) {			
+	        result += bytes[i] << ((numBytes - i - 1) * 8);
+	    }
+	    
+	    return result;
+	}
     
 
     //#########################################################################################################################
@@ -528,43 +553,47 @@ class JsMidiBridge {
 	 * Change bit length per byte
 	 */
     #convertBitlength(data, bitlengthFrom, bitlengthTo, appendLeftovers) {
+		if (!(data instanceof Uint8Array)) {
+			throw new Error("Invalid input data, must be an Uint8Array");
+		}
+		
         let result = [];
         let buffer = [];
 
         function flush() {
             let newEntry = 0x00;
             
-            while(buffer.size() < bitlengthTo) {
-                buffer.push(false);
+            while(buffer.length < bitlengthTo) {
+                buffer.push(0);
             }
 
-            for (let i = 0; i < buffer.size(); ++i) {
+            for (let i = 0; i < buffer.length; ++i) {
                 const e = buffer[i];
-                if (!e) continue;
+                if (e != 1) continue;
 
                 const mask = (1 << (bitlengthTo - 1 - i));
                 newEntry |= mask;
             }
 
             result.push(newEntry);
-            buffer = [];		
+            buffer = [];
 		}
 		
-        for (b of data) {
+        for (const b of data) {
             for (let i = 0; i < bitlengthFrom; ++i) {
                 const mask = (1 << (bitlengthFrom - 1 - i));
-                buffer.push(b & mask == mask);
+                buffer.push(((b & mask) == mask) ? 1 : 0);
 
-                if (buffer.size() == bitlengthTo) {
+                if (buffer.length == bitlengthTo) {
                     flush();
                 }
             }
         }
 
-        if (appendLeftovers && buffer.size() > 0) {
+        if (appendLeftovers && buffer.length > 0) {
             flush();
         }
 
-        return result;
+        return new Uint8Array(result);
     }
 }
