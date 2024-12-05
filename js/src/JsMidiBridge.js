@@ -28,7 +28,7 @@ const JMB_VERSION = "0.2.0";
 /**
  * Manufacturer ID of JsMidiBridge
  */
-const JMB_MANUFACTURER_ID = [0x00, 0xac, 0xdc];
+const JMB_MANUFACTURER_ID = [0x00, 0x7c, 0x7d];
 
 /**
  * Command prefix to request a file to be transfered.

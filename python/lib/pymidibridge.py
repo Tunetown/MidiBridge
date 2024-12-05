@@ -13,7 +13,7 @@ from math import ceil
 PMB_VERSION = "0.2.0"
 
 # Manufacturer ID of PyMidiBridge
-PMB_MANUFACTURER_ID = b'\x00\xac\xdc' 
+PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
 
 # Command prefix to request a file to be transfered.
 # Syntax: [

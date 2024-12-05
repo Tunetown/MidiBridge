@@ -47,20 +47,24 @@ class Demo {
     async #setupMidi() {
         const that = this
 
-        function onMIDISuccess(midiAccess) {
+        async function onMIDISuccess(midiAccess) {
             console.log("MIDI ready!");
+
+            if (!midiAccess.sysexEnabled) {
+                throw new Error("You must allow SystemExclusive messages");
+            }
 
             that.#midi = new MidiHandler(midiAccess, that.#callbacks, that.#bridge);
 
             // Scan for ports (will call a callback when finished, updating the selector)
-            that.#midi.scan();
+            await that.#midi.scan();
         }
 
-        function onMIDIFailure(msg) {
+        async function onMIDIFailure(msg) {
             console.error(`Failed to get MIDI access - ${msg}`);
         }
 
-        await navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+        await navigator.requestMIDIAccess({ sysex: true }).then(onMIDISuccess, onMIDIFailure);
     }
 
     /**
@@ -69,36 +73,38 @@ class Demo {
     #setupBridge() {
         this.#bridge = new JsMidiBridge();
 
-        // Callback enabling the bridge to send MIDI SysEx messages
-        this.#bridge.callbacks.register("Demo App", "midi.sysex.send", async function(data) {
-            // Send message
-        });
+        // // Callback enabling the bridge to send MIDI SysEx messages
+        // this.#bridge.callbacks.register("Demo App", "midi.sysex.send", async function(data) {
+        //     // Send message
+        // });
 
-        // Callback to deliver "file" data to the bridge (here, in JS we do not use files but the callback
-        // just has to return the correct content for the given path)
-        this.#bridge.callbacks.register("Demo App", "file.get", async function(data) {
-            // Return content
-        });
+        // // Callback to deliver "file" data to the bridge (here, in JS we do not use files but the callback
+        // // just has to return the correct content for the given path)
+        // this.#bridge.callbacks.register("Demo App", "file.get", async function(data) {
+        //     // Return content
+        // });
 
-        // Callbacks to interact with receiving data, in the order they are normally called.
-        this.#bridge.callbacks.register("Demo App", "receive.start", async function(data) {
-            // Start transmission
-        });
+        // // Callbacks to interact with receiving data, in the order they are normally called.
+        // this.#bridge.callbacks.register("Demo App", "receive.start", async function(data) {
+        //     // Start transmission
+        // });
 
-        this.#bridge.callbacks.register("Demo App", "receive.progress", async function(data) {
-            // Receive progress information
-        });
+        // this.#bridge.callbacks.register("Demo App", "receive.progress", async function(data) {
+        //     // Receive progress information
+        // });
 
-        this.#bridge.callbacks.register("Demo App", "receive.finish", async function(data) {
-            // Receive data
-        });
+        // this.#bridge.callbacks.register("Demo App", "receive.finish", async function(data) {
+        //     // Receive data
+        // });
 
         this.#bridge.callbacks.register("Demo App", "receive.ack", async function(data) {
             // Receive an acknowledgement message from the other device when it successfully stored a file sent from here
+            console.log("Successfully wrote " + data.path);
         });
         
         this.#bridge.callbacks.register("Demo App", "error", async function(data) {
             // Error handling (called when the other device sends an error MIDI message)
-        });
+            console.error(data)
+        });        
     }
 }

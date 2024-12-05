@@ -18,60 +18,122 @@
 class MidiHandler {
 
     #midiAccess = null;       // MIDIAccess instance
-    #callbacks = null;
+    //#callbacks = null;
     #bridge = null            // JsMidiBridge instance
+    #listeningPort = null
 
     constructor(midiAccess, callbacks, bridge) {
         this.#midiAccess = midiAccess;
-        this.#callbacks = callbacks;
+        //this.#callbacks = callbacks;
         this.#bridge = bridge
+
+        // Callback enabling the bridge to send MIDI SysEx messages
+        // const that = this;
+        // this.#bridge.callbacks.register("Demo App", "midi.sysex.send", async function(data) {
+        //     if (!that.#outputPort) {
+        //         console.log("No port chosen");
+        //         return;
+        //     }
+
+        //     await that.#sendSysex(
+        //         that.#outputPort,
+        //         data.manufacturerId,
+        //         data.data
+        //     )
+        // });
     }
 
     /**
      * Scan for ports (will call a callback when finished, updating the selector)
      */
-    scan() {
+    async scan() {
         const ports = this.#getMatchingPorts();
-
+                
         for (const port of ports) {
-            // Check if the port has a bridge behind it (async, to have this process pseudo-parallel)
-            this.#checkPort(port)
-            .then(function(data) {
-                console.log("Port succeeded!", data);
-            })
-            .catch(function(err) {
-                console.log("Port failed", err);
-            });
+            this.#checkPortAndAttach(port);
         }
+
+        this.#bridge.request("/switches.py");  // TODO use getcwd instead
+    }
+
+    async #checkPortAndAttach(port) {
+        // Check if the port has a bridge behind it (async, to have this process pseudo-parallel)
+        try {
+            const data = await this.#checkPort(port);
+                
+            console.log("Port succeeded!", data);
+
+            this.#bridge.callbacks.delete(this.#getScanProcessId(port))
+
+            this.#listenTo(data);
+
+            return;
+
+        } catch (e) {
+            console.log("Port failed", e);
+
+            this.#bridge.callbacks.delete(this.#getScanProcessId(port))
+        }
+    }
+
+    /**
+     * Start listening to a port (connects the bridge to it)
+     */
+    #listenTo(port) {
+        if (!this.#listeningPort) return;
+
+        this.#listeningPort = port;
+        
+        const that = this;
+        port.input.onmidimessage = function(event) {
+            that.#processMidiMessage(port, event);
+        }
+    }
+
+    /**
+     * Process incoming messages
+     */
+    #processMidiMessage(port, event) {
+        let str = `MIDI message received at timestamp ${event.timeStamp}[${event.data.length} bytes]: `;
+
+        for (const character of event.data) {
+            str += `0x${character.toString(16)} `;
+        }
+        
+        console.log(str);
     }
 
     /**
      * Check if the port has a bridge behind it. Rejects when not.  
      */
     async #checkPort(port) {
-        const bridge = new JsMidiBridge();
         const that = this;
 
-        // Callback enabling the bridge to send MIDI SysEx messages
-        bridge.callbacks.register("Demo App", "midi.sysex.send", async function(data) {
-            that.#sendSysex(
-                port.output,
-                data.manufacturerId,
-                data.data
-            )
-        });
-
         return new Promise(function(resolve, reject) {
-            bridge.callbacks.register("Demo App", "receive.start", async function(data) {
+            that.#bridge.callbacks.register(that.#getScanProcessId(port), "midi.sysex.send", async function(data) {
+                await that.#sendSysex(
+                    port.output[1],
+                    data.manufacturerId,
+                    data.data
+                )
+            });
+            that.#bridge.callbacks.register(that.#getScanProcessId(port), "receive.start", async function(data) {
+                console.log("Received start", data)
                 resolve(port);
             });
 
-            bridge.callbacks.register("Demo App", "error", async function(data) {
+            that.#bridge.callbacks.register(that.#getScanProcessId(port), "error", async function(data) {
+                console.error("Received error", data)
                 reject(port);
-            });
-
-            bridge.request("/switches.py");  // TODO use getcwd instead
+            });            
         });
+    }
+
+    /**
+     * Get temporary process IDs for the callback (so we can delete those later
+     */
+    #getScanProcessId(port) {
+        return "Scan " + port.output[1].name;
     }
 
     /**
@@ -108,7 +170,19 @@ class MidiHandler {
     /**
      * Send a sysex message to the passed output Port (instance of MIDIOutput)
      */
-    #sendSysex(outputPort, manufacturerId, data) {
+    async #sendSysex(outputPort, manufacturerId, data) {
+        const msg = [
+            0xf0
+        ].concat(
+            manufacturerId,   
+            data,
+            [
+                0xf7
+            ]
+        );
 
+        console.log("Sending message to " + outputPort.name + ": ", msg);
+        
+        await outputPort.send(msg);
     }
 }
