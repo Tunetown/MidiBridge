@@ -1,4 +1,21 @@
 /**
+ * Generic callbacks.
+ * 
+ * (C) Thomas Weber 2024 tom-vibrant@gmx.de
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
  * This class can transfer data from/to a MIDI connection, by interfacing with itself (or a port of 
  * it) on the other device using SystemExclusive messages.
  */
@@ -95,11 +112,6 @@ const JMB_FILE_ID_LENGTH_HALFBYTES = 4;
 const JMB_CHECKSUM_LENGTH_FULLBYTES = 2;
 const JMB_CHECKSUM_LENGTH_HALFBYTES = 3;
 
-/** 
- * Endianess for conversion of numbers (not for the data itself!)
- */ 
-//const JMB_NUMBER_ENC_ENDIANESS = "big";
-
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -143,7 +155,7 @@ class JsMidiBridge {
 
         // Check if file exists and see how many chunks we will need
         let data = await this.callbacks.execute("file.get", { path: path });
-        if (!data) {
+        if (data === null) {
             throw new Error(path + " not found or empty");
         }        
         const amountChunks = Math.ceil(data.length / this.#readChunkSize);
@@ -366,8 +378,7 @@ class JsMidiBridge {
 			path: this.#writeFilePath,
 			fileId: this.#writeFileId,
 			chunk: index,
-			numChunks: this.#writeAmountChunks,
-			//chunk: strData
+			numChunks: this.#writeAmountChunks
 		});  
         
         // If this has been the last chunk, close the file handle and send ack message
@@ -462,14 +473,6 @@ class JsMidiBridge {
 			throw new Error("Invalid input data, must be an Uint8Array");
 		}
 		
-        /*if (!data.length) {
-			const ret = [];
-			for(let i = 0; i < JMB_CHECKSUM_LENGTH_HALFBYTES; ++i) {
-				ret.push(0);
-			}
-            return new Uint8Array(ret);
-        }*/
-        
         const crc = this.#crc16(data);
         return this.number2bytes(crc, JMB_CHECKSUM_LENGTH_FULLBYTES);
 	}

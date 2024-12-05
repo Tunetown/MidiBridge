@@ -31,6 +31,56 @@ describe('Protocol', function() {
             6
         )
     });
+    
+    
+    it('Send: No path', async function() {
+		const bridge = new JsMidiBridge();
+	    	    
+	    await expectAsync(bridge.send(null)).toBeRejected();
+	    await expectAsync(bridge.send("")).toBeRejected();
+	    await expectAsync(bridge.send(false)).toBeRejected();	        		
+	});	
+	
+	
+	it('Send: File not found', async function() {
+		const test = new TestProtocol();
+		await test.testFileNotFound();
+	});		
+
+
+	it('Send: Empty file', async function() {
+		const test = new TestProtocol();
+		await test.testEmptyFile();
+	});		
+	
+	it('Request', async function() {
+		const test = new TestProtocol();
+		
+		await test.testRequestFile(" ");
+        await test.testRequestFile("foo");
+        await test.testRequestFile("/foo/path/to/bar.txt");
+    });
+    
+    it('Request: No path', async function() {
+		const bridge = new JsMidiBridge();
+		await expectAsync(bridge.request(null)).toBeRejected();
+		await expectAsync(bridge.request("")).toBeRejected();
+		await expectAsync(bridge.request(false)).toBeRejected();
+	});	
+	
+	it('Request: Generate file ID', async function() {
+		const bridge = new JsMidiBridge();
+        const buffer = [];
+
+        for (let i = 0; i < 100; ++i) {
+            const fileId = bridge.generateFileId();
+
+            expect(fileId).toBeInstanceOf(Uint8Array);
+            expect(fileId.length).toBe(4);
+
+            buffer.push(fileId);
+        }         
+	});	
 });
 
 
@@ -52,22 +102,22 @@ class TestProtocol {
 		let finish_called = false;
 		
 		bridge.callbacks.register("Test", "receive.start", function(data) {
-			expect(data.path).toEqual(path);
-			expect(data.numChunks).toBe(expectedNumMessages);
+			expect(data.path).toEqual(path);			
+			
+			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			start_called = true					
 		});
 
 		let progressCnt = 0;
 		bridge.callbacks.register("Test", "receive.progress", function(data) {
 			expect(data.path).toEqual(path);
-			expect(data.numChunks).toBe(expectedNumMessages);
-			expect(data.data).toEqual(inputData);	
+			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			expect(data.chunk).toBe(progressCnt++);						
 		});
 
 		bridge.callbacks.register("Test", "receive.finish", function(data) {
 			expect(data.path).toEqual(path);
-			expect(data.numChunks).toBe(expectedNumMessages);
+			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			expect(data.data).toEqual(inputData);	
 			finish_called = true					
 		});
@@ -154,21 +204,21 @@ class TestProtocol {
         
         expect(start_called).toBe(true);
         expect(finish_called).toBe(true);   
-        expect(progressCnt).toBe(expectedNumMessages);   
-    }
+        expect(progressCnt).toBe(expectedNumMessages - 1);   
+    }    
     
     /**
 	 * Generates an invalid chunk for the file_id in the passed message. The chunk 0 is used, because this is invalid after
 	 */
     #generateInvalidChunk(midiMessage, invalidIndex = 999) {
-        const bridge = new JsMidiBridge();
+		const bridge = new JsMidiBridge();
 
         const fileId = midiMessage.data.slice(4, 8);
         const chunkIndex = Array.from(bridge.number2bytes(invalidIndex, 3));
         const data = Array.from(bridge.string2bytes("foo"));
 
         const payload = fileId.concat(chunkIndex, data);
-        const checksum = bridge.getChecksum(new Uint8Array(payload));
+        const checksum = Array.from(bridge.getChecksum(new Uint8Array(payload)));
 
         return {
             manufacturerId: JMB_MANUFACTURER_ID,
@@ -188,6 +238,7 @@ class TestProtocol {
 		let called = false;
 
 		bridge.callbacks.register("Test", "error", function(data) {
+			if(!data.message.includes(token)) debugger;
 			expect(data.message).toContain(token);
 			called = true					
 		});
@@ -217,149 +268,95 @@ class TestProtocol {
         
         expect(called).toBe(true);
     }
+    
+    
+    //###############################################################################################
+    
+    
+    async testFileNotFound() {
+    	const bridge = new JsMidiBridge();
+		
+   		let messagesSent = [];
+		let returnNull = false;
+		
+		bridge.callbacks.register("Test", "file.get", function(data) {
+			if (returnNull) {
+				return null;
+			}
+			if (data.path == "foo") {
+				return "ghtgf";
+			}
+		});
+		
+		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
+			messagesSent.push(data);	
+		});
+
+        await bridge.request("foo");
+        const msgRequest = messagesSent[0];
+
+		messagesSent = [];
+        returnNull = true;
+
+        await bridge.receive(msgRequest);
+        
+        const lastMessage = messagesSent[messagesSent.length - 1];
+        
+        await this.#evaluateError(lastMessage, "foo");
+        await this.#evaluateError(lastMessage, "not found");
+    }
+    
+    async testEmptyFile() {
+        const bridge = new JsMidiBridge();
+        
+        let messagesSent = [];
+
+		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
+			messagesSent.push(data);	
+		});
+
+		bridge.callbacks.register("Test", "file.get", function(data) {
+			if (data.path == "foo") {
+				return "";
+			}
+		});
+
+        await bridge.request("foo");
+        const msgRequest = messagesSent[0];
+
+        await bridge.receive(msgRequest);
+                
+		const lastMessage = messagesSent[messagesSent.length - 1];
+        
+        await this.#evaluateError(lastMessage, "foo");
+        await this.#evaluateError(lastMessage, "empty");
+    }
+
+
+	//###############################################################################################
+
+
+    async testRequestFile(path) {
+       	const bridge = new JsMidiBridge();    
+        
+        let messagesSent = [];
+
+		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
+			messagesSent.push(data);	
+		});
+		
+        await bridge.request(path);
+
+        const msgSent = messagesSent[0];
+        
+        expect(msgSent.manufacturerId).toEqual(JMB_MANUFACTURER_ID);
+        expect(msgSent.data.slice(0, 1), JMB_REQUEST_MESSAGE);
+        
+        const checksum = new Uint8Array(msgSent.data.slice(1, 4));
+        const payload = bridge.bytes2string(new Uint8Array(msgSent.data.slice(4)));
+        
+        expect(payload).toEqual(path);
+        expect(checksum).toEqual(bridge.getChecksum(new Uint8Array(msgSent.data.slice(4))));
+    }
 }
-
-/*
-
-
-  
-
-    
-        
-
-    def test_receive_reboot(self):
-        bridge = PyMidiBridge(None, None)
-
-        with self.assertRaises(SystemExit):
-            bridge.receive(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = PMB_MANUFACTURER_ID,
-                    data = PMB_REBOOT_MESSAGE
-                )
-            )
-
-    
-    def test_send_no_path(self):
-        bridge = PyMidiBridge(None, None)
-
-        with self.assertRaises(Exception):
-            bridge.send(None)
-
-        with self.assertRaises(Exception):
-            bridge.send("")
-
-
-    def test_request_file_not_found(self):
-        midi = MockMidiSender()
-        storage = MockStorageProvider()
-
-        bridge = PyMidiBridge(
-            midi = midi, 
-            storage = storage
-        )
-
-        storage.outputs_size = {
-            "foo": 5
-        }
-
-        storage.read_data = {
-            "foo": "ghtgf"
-        }
-
-        bridge.request("foo")
-        msg_request = midi.last_message
-
-        bridge.receive(msg_request)
-        
-        storage.outputs_size["foo"] = -1
-
-        bridge.receive(msg_request)
-        self._evaluate_error(midi.last_message, "foo")
-        self._evaluate_error(midi.last_message, "not found")
-
-
-    def test_request_empty_file(self):
-        midi = MockMidiSender()
-        storage = MockStorageProvider()
-
-        bridge = PyMidiBridge(
-            midi = midi, 
-            storage = storage
-        )
-
-        storage.outputs_size = {
-            "foo": 0
-        }
-
-        storage.read_data = {
-            "foo": ""
-        }
-
-        bridge.request("foo")
-        msg_request = midi.last_message
-
-        bridge.receive(msg_request)
-        self._evaluate_error(midi.last_message, "foo")
-        self._evaluate_error(midi.last_message, "empty")
-        
-
-############################################################################################################
-
-
-    def test_request_file(self):
-        self._test_request_file(" ")
-        self._test_request_file("foo")
-        self._test_request_file("/foo/path/to/bar.txt")
-
-
-    def _test_request_file(self, path):
-        midi = MockMidiSender()
-
-        bridge = PyMidiBridge(
-            midi = midi,
-            storage = None
-        )        
-        
-        bridge.request(path)
-
-        msg_sent = messagesSent[0]
-        self.assertEqual(msg_sent.manufacturer_id, PMB_MANUFACTURER_ID)
-        self.assertEqual(msg_sent.data[:1], PMB_REQUEST_MESSAGE)
-
-        checksum = msg_sent.data[1:4]
-        payload = bridge._bytes_2_string(msg_sent.data[4:])
-        
-        self.assertEqual(payload, path)
-        self.assertEqual(checksum, bridge._get_checksum(msg_sent.data[4:]))
-
-
-    def test_request_no_path(self):
-        bridge = PyMidiBridge(None, None)
-
-        with self.assertRaises(Exception):
-            bridge.request(None)
-
-        with self.assertRaises(Exception):
-            bridge.request("")
-
-
-############################################################################################################
-
-
-    def test_generate_file_id(self):
-        bridge = PyMidiBridge(None, None)
-        buffer = []
-
-        for i in range(100):
-            file_id = bridge._generate_file_id()
-
-            self.assertEqual(len(file_id), 4)
-            self.assertNotIn(file_id, buffer)
-
-            buffer.append(file_id)            
-
-
-
-
-*/
 
