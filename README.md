@@ -60,7 +60,7 @@ cd js/test
 docker compose up -d
 ```
 
-Then open your browser and call http://localhost which will show you the Jasmine test runner. The test cases are implemented in js/test/htdocs/spec. As this is a crucial piece of software, test coverage is way over 95% for the JsMidiBridge.js script.
+Then open your browser and call http://localhost/test which will show you the Jasmine test runner. The test cases are implemented in js/test/htdocs/spec. As this is a crucial piece of software, test coverage is way over 95% for the JsMidiBridge.js script.
 
 Dont forget to quit the container again using:
 

@@ -5,9 +5,14 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./htdocs:/var/www/html
+      - ./htdocs:/var/www/html/test
+      - ../src:/var/www/html/test/src      
+      - ../../python/test/data:/var/www/html/test/data
+
+      - ../demo:/var/www/html/demo
+      - ../src:/var/www/html/demo/lib      
+      
       - ./apache2-conf:/etc/apache2/sites-available
       #- ./apache2-log:/var/log/apache2
-      - ../src:/var/www/html/src
-      - ../../python/test/data:/var/www/html/data
+      
   
