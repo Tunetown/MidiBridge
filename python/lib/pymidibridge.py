@@ -85,6 +85,8 @@ _PMB_CHECKSUM_LENGTH_HALFBYTES = 3
 # Endianess for conversion of numbers (not for the data itself!)
 _PMB_NUMBER_ENC_ENDIANESS = "big"
 
+# Encoding for strings during transfer
+_PMB_STRING_ENCODING = "utf-8"
 
 ####################################################################################################################
     
@@ -374,19 +376,16 @@ class PyMidiBridge:
 
 
     # String to bytearray conversion (only returns MIDI half-bytes)
-    def _string_2_bytes(self, str):
-        return self._pack_bytes(bytes([ord(c) for c in str]) + b'\x00')
-
+    def _string_2_bytes(self, str):        
+        return self._pack_bytes(str.encode(_PMB_STRING_ENCODING))
 
     # Bytearray to string conversion 
     def _bytes_2_string(self, data):
-        return ''.join(chr(int(c)) for c in list(self._unpack_bytes(data[:-1])))
-    
+        return ''.join(self._unpack_bytes(data).decode(_PMB_STRING_ENCODING))    
 
     # Number to bytearray conversion (only returns MIDI half-bytes)
     def _number_2_bytes(self, num, num_bytes):
         return self._pack_bytes(num.to_bytes(num_bytes, _PMB_NUMBER_ENC_ENDIANESS))
-
 
     # Bytes to number conversion
     def _bytes_2_number(self, data):

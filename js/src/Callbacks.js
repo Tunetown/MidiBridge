@@ -66,8 +66,19 @@ class Callbacks {
 			processId: processId, 
 			callback: callback,
 			priority: priority ? priority : 0,
-			id: Tools.getUuid()
+			id: this.#getUuid()
 		});
+	}
+	
+	#uuidSeed = 0;
+	
+	/**
+	 * Generate 8 character uuids. 
+	 * 
+	 * TODO find better algorithm, this has problems but works for now. Problem is: After page Reload, for the next #uuidSeed milliseconds, the IDs can collide very likely.
+	 */
+	#getUuid() {
+		return (Date.now() + (this.#uuidSeed++)).toString(36);
 	}
 	
 	/**
@@ -136,40 +147,5 @@ class Callbacks {
 		
 		return null;
 	}
-	
-	/*getDebugString() {
-		let ret = '';
-		if (!this.#callbacks.size) return ret;
-		
-		for(const [actionIdPrefix, list] of this.#callbacks) {
-			ret += actionIdPrefix + ', ';
-		}
-		
-		return ret;
-	}
-	
-	#debugMessages(actionId, data, handlers) {
-		if (!this.#options.debugCalls) return;
-		if (!Config.DEBUG_CALLBACKS) return;
-
-		if (Array.isArray(Config.DEBUG_CALLBACKS_LIST) && (Config.DEBUG_CALLBACKS_LIST.length > 0)) {
-			if (!Config.DEBUG_CALLBACKS_LIST.filter((token) => actionId.startsWith(token)).length) return;
-		}
-		
-		const handlerStr = handlers.length ? (' (' + handlers.length + ' handlers)') : ''; 
-		
-		if (Config.DEBUG_CALLBACK_STACK) {
-			console.info(
-				'Callback executed: ' + actionId + handlerStr, 
-				Tools.getStack(), 
-				data ? data : ''
-			);
-		} else {
-			console.info(
-				'Callback executed: ' + actionId + handlerStr, 
-				data ? data : ''
-			);
-		}
-	}*/
 }
 	

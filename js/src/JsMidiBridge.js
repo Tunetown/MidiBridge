@@ -109,7 +109,7 @@ const JMB_CHECKSUM_LENGTH_HALFBYTES = 3;
  */
 class JsMidiBridge {
 
-    #next_id = 1;              // Next file ID
+    #nextFileId = 1;              // Next file ID
 
 	#writeFileId = null;       // Internal file ID currently received.
     #writeBuffer = "";         // Write buffer
@@ -118,6 +118,9 @@ class JsMidiBridge {
     #writeLastChunk = -1;      // Counts received chunks
     
     #readChunkSize = null;
+    
+    throwExceptionsOnReceive = false;  
+    
     
     constructor(readChunkSize = 1024) {
 		this.callbacks = new Callbacks();
@@ -139,7 +142,7 @@ class JsMidiBridge {
         const fileIdBytes = this.generateFileId();     
 
         // Check if file exists and see how many chunks we will need
-        const data = await this.callbacks.execute("file.get", path);
+        let data = await this.callbacks.execute("file.get", { path: path });
         if (!data) {
             throw new Error(path + " not found or empty");
         }        
@@ -154,7 +157,7 @@ class JsMidiBridge {
 
         // Transfer in chunks
         let chunkIndex = 0;
-        while(True) {
+        while(true) {
             const chunk = data.substring(0, this.#readChunkSize);
             data = data.substring(this.#readChunkSize);
             if (!chunk) {
@@ -174,8 +177,9 @@ class JsMidiBridge {
 			throw new Error("No path");
 		}
         
-        const payload = this.string2bytes(path);
-        const checksum = this.getChecksum(payload);
+        const payloadBytes = this.string2bytes(path);
+        const checksum = Array.from(this.getChecksum(payloadBytes));
+        const payload = Array.from(payloadBytes);
 
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -188,10 +192,9 @@ class JsMidiBridge {
 	 * Send the "Start of transmission" message
 	 */ 
     async #sendStartMessage(path, fileIdBytes, amountChunks) {     
-        const amountChunksBytes = this.number2bytes(amountChunks, JMB_CHUNK_INDEX_SIZE_FULLBYTES);   
-        
-        const payload = fileIdBytes.concat(amountChunksBytes, this.string2bytes(path));
-        const checksum = this.getChecksum(payload);
+        const amountChunksBytes = Array.from(this.number2bytes(amountChunks, JMB_CHUNK_INDEX_SIZE_FULLBYTES));   
+        const payload = Array.from(fileIdBytes).concat(amountChunksBytes, Array.from(this.string2bytes(path)));
+        const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -204,11 +207,11 @@ class JsMidiBridge {
 	 * Sends one chunk of data
 	 */ 
     async #sendChunk(fileIdBytes, chunk, chunkIndex) {
-        const dataBytes = this.string2bytes(chunk);
-        const chunkIndexBytes = this.number2bytes(chunkIndex, JMB_CHUNK_INDEX_SIZE_FULLBYTES);
+        const dataBytes = Array.from(this.string2bytes(chunk));
+        const chunkIndexBytes = Array.from(this.number2bytes(chunkIndex, JMB_CHUNK_INDEX_SIZE_FULLBYTES));
         
-        const payload = fileIdBytes.concat(chunkIndexBytes, dataBytes);
-        const checksum = this.getChecksum(payload);
+        const payload = Array.from(fileIdBytes).concat(chunkIndexBytes, dataBytes);
+        const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -220,7 +223,7 @@ class JsMidiBridge {
 	 * Generate a file ID (4 bytes)
 	 */ 
     generateFileId() {
-        return this.number2bytes(++this.#next_id, JMB_FILE_ID_LENGTH_FULLBYTES);
+        return this.number2bytes(++this.#nextFileId, JMB_FILE_ID_LENGTH_FULLBYTES);
     }
     
 
@@ -233,7 +236,7 @@ class JsMidiBridge {
 	 */
     async receive(midiMessage) {
         // Check if the message has the necessary attributes
-        if (!midiMessage.hasOwn("manufacturer_id") || !midiMessage.hasOwn("data")) {
+        if (!midiMessage || !midiMessage.hasOwnProperty("manufacturerId") || !midiMessage.hasOwnProperty("data")) {
 			return;
 		}
         
@@ -243,37 +246,37 @@ class JsMidiBridge {
 		}
         
         // This determines what the sender of the message wants to do
-        const command_id = JSON.stringify(midiMessage.data.slice(
+        const commandId = JSON.stringify(midiMessage.data.slice(
 			0, 
-			JMB_PREFIXES_LENGTH_HALFBYTES - 1
+			JMB_PREFIXES_LENGTH_HALFBYTES
 		))
 
         // Next there is the checksum for all messages
-        const checksumBytes = midiMessage.data.slice(
+        const checksumBytes = new Uint8Array(midiMessage.data.slice(
 			JMB_PREFIXES_LENGTH_HALFBYTES,
-			JMB_PREFIXES_LENGTH_HALFBYTES + JMB_CHECKSUM_LENGTH_HALFBYTES - 1
-		);
-        let payload = midiMessage.data.slice(
 			JMB_PREFIXES_LENGTH_HALFBYTES + JMB_CHECKSUM_LENGTH_HALFBYTES
-		)
-
-        try {
+		));
+        let payload = new Uint8Array(midiMessage.data.slice(
+			JMB_PREFIXES_LENGTH_HALFBYTES + JMB_CHECKSUM_LENGTH_HALFBYTES
+		))
+		
+		try {			
             // Checksum test
-            if (this.getChecksum(payload) != checksumBytes) {
+            if (!this.#compareArrays(this.getChecksum(payload), checksumBytes)) {
                 throw new Error("Checksum mismatch");
-            }
+            }    
 
             // Receive: Message to request sending a file
-            if (command_id == JSON.stringify(JMB_REQUEST_MESSAGE)) {
+            if (commandId == JSON.stringify(JMB_REQUEST_MESSAGE)) {
                 // Send file
                 await this.send(this.bytes2string(payload));
                 return;
             }
             
-            if (command_id == JSON.stringify(JMB_ERROR_MESSAGE)) {
+            if (commandId == JSON.stringify(JMB_ERROR_MESSAGE)) {
                 // Handle incoming error messages if an error handler is given
-                await this.callbacks.execute("client.error", {
-                    error: this.bytes2string(payload)
+                await this.callbacks.execute("error", {
+                    message: this.bytes2string(payload)
                 });
                 return;
             }
@@ -281,36 +284,41 @@ class JsMidiBridge {
             // All other messages have a file ID coming next, so we split that off the payload
             const fileIdBytes = payload.slice(
 				0, 
-				JMB_FILE_ID_LENGTH_HALFBYTES - 1
+				JMB_FILE_ID_LENGTH_HALFBYTES
 			);
+						
             payload = payload.slice(
 				JMB_FILE_ID_LENGTH_HALFBYTES
 			);
-
+			
             // Receive: Start of transmission
-            if (command_id == JSON.stringify(JMB_START_MESSAGE)) {
-                await this.#receiveStart(fileIdBytes, payload);
+            if (commandId == JSON.stringify(JMB_START_MESSAGE)) {				
+				await this.#receiveStart(fileIdBytes, payload);
             }
 
             // Receive: Data
-            else if (command_id == JSON.stringify(JMB_DATA_MESSAGE)) {            
-                if (fileIdBytes == this.#writeFileId) {
+            else if (commandId == JSON.stringify(JMB_DATA_MESSAGE)) {  
+                if (this.#compareArrays(fileIdBytes, this.#writeFileId)) {					
                     await this.#receiveData(payload);
                 }
             }
 
             // Ack message
-            else if (command_id == JSON.stringify(PMB_ACK_MESSAGE)) {
-                await this.callbacks.execute("client.ack", {
+            else if (commandId == JSON.stringify(JMB_ACK_MESSAGE)) {
+                await this.callbacks.execute("receive.ack", {
 					fileId: fileIdBytes
 				});
 			}               
 
         } catch(ex) {
             await this.#sendErrorMessage(ex.message);
+
+			if (this.throwExceptionsOnReceive) {
+				throw ex;
+			}
 		}
 	}
-
+	
     /**
 	 * Start receiving file data
 	 */
@@ -321,45 +329,45 @@ class JsMidiBridge {
         this.#writeBuffer = "";
         
         // Amount of chunks overall
-        this.#writeAmountChunks = this.bytes2number(payload.slice(0, JMB_CHUNK_INDEX_SIZE_HALFBYTES - 1));
+        this.#writeAmountChunks = this.bytes2number(payload.slice(0, JMB_CHUNK_INDEX_SIZE_HALFBYTES));
 
         // Path to write to
         this.#writeFilePath = this.bytes2string(payload.slice(JMB_CHUNK_INDEX_SIZE_HALFBYTES));
-                                
+        
         // Signal start of transmission
         await this.callbacks.execute("receive.start", {
 			path: this.#writeFilePath,
 			fileId: fileIdBytes,
 			numChunks: this.#writeAmountChunks
-		});  
+		});
 	}      
 
     /**
 	 * Receive file data
 	 */ 
-    async #receiveData(payload) {        
+    async #receiveData(payload) {   
         // Index of the chunk
-        const index = this.bytes2number(payload.slice(0, JMB_CHUNK_INDEX_SIZE_HALFBYTES - 1));
+        const index = this.bytes2number(payload.slice(0, JMB_CHUNK_INDEX_SIZE_HALFBYTES));
 
         // Chunk data
-        const str_data = this.bytes2string(payload.slice(JMB_CHUNK_INDEX_SIZE_HALFBYTES));
+        const strData = this.bytes2string(payload.slice(JMB_CHUNK_INDEX_SIZE_HALFBYTES));
     
         // Only accept if the chunk index is the one expected
-        if (index != this.#writeLastChunk + 1) {
-            throw new Error("Invalid chunk " + index + ", expected " + (this.write_last_chunk + 1));
+        if (index != this.#writeLastChunk + 1) {			
+            throw new Error("Invalid chunk " + index + ", expected " + (this.#writeLastChunk + 1));
         }
         
         this.#writeLastChunk = index;
 
         // Append to file
-        this.#writeBuffer += str_data;
+        this.#writeBuffer += strData;
         
         await this.callbacks.execute("receive.progress", {
 			path: this.#writeFilePath,
 			fileId: this.#writeFileId,
 			chunk: index,
 			numChunks: this.#writeAmountChunks,
-			//chunk: str_data
+			//chunk: strData
 		});  
         
         // If this has been the last chunk, close the file handle and send ack message
@@ -373,7 +381,7 @@ class JsMidiBridge {
 	 */
     async #receiveFinish() {
         await this.callbacks.execute("receive.finish", {
-			fileId: fileIdBytes,
+			fileId: this.#writeFileId,
 			path: this.#writeFilePath,
 			data: this.#writeBuffer,
 			numChunks: this.#writeAmountChunks	
@@ -390,8 +398,8 @@ class JsMidiBridge {
 	 * Sends the "acknowledge successful transfer" message
 	 */
     async #sendAckMessage(fileIdBytes) {
-        const payload = fileIdBytes;
-        const checksum = this.getChecksum(payload);
+		const payload = Array.from(fileIdBytes);
+        const checksum = Array.from(this.getChecksum(fileIdBytes));
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -403,8 +411,9 @@ class JsMidiBridge {
 	 * Sends an error message
 	 */
     async #sendErrorMessage(msg) {
-        const payload = this.string2bytes(msg);
-        const checksum = this.getChecksum(payload);
+		const payloadBytes = this.string2bytes(msg);
+        const payload = Array.from(payloadBytes);
+        const checksum = Array.from(this.getChecksum(payloadBytes));
 
 		await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -416,12 +425,31 @@ class JsMidiBridge {
 	 * Send a MIDI message via callback
 	 */
     async #sendSysex(manufacturerId, data) {
+		if (!Array.isArray(manufacturerId)) throw new Error("Cannot send manufacturer id " + manufacturerId);
+		if (!Array.isArray(data)) throw new Error("Cannot send data " + data);
+		
 		await this.callbacks.execute("midi.sysex.send", {
 			manufacturerId: manufacturerId,
 			data: data
 		});
 	}
-	
+
+	/**
+	 * Compare two Uint arrays (could be done more js like but works)
+	 */
+	#compareArrays(a, b) {
+		if (a.length != b.length) {
+			return false;
+		}
+		 
+		for (let i = 0; i < a.length; ++i) {
+			if (a[i] != b[i]) {
+				return false;
+			} 
+		}
+		
+		return true;
+	}
 
     // Checksum ###########################################################################################################
 
@@ -434,13 +462,13 @@ class JsMidiBridge {
 			throw new Error("Invalid input data, must be an Uint8Array");
 		}
 		
-        if (!data) {
-			ret = [];
+        /*if (!data.length) {
+			const ret = [];
 			for(let i = 0; i < JMB_CHECKSUM_LENGTH_HALFBYTES; ++i) {
 				ret.push(0);
 			}
-            return ret;
-        }
+            return new Uint8Array(ret);
+        }*/
         
         const crc = this.#crc16(data);
         return this.number2bytes(crc, JMB_CHECKSUM_LENGTH_FULLBYTES);
@@ -454,15 +482,15 @@ class JsMidiBridge {
         let crc = 0xFFFF;
         
         for (const b of data) {
-            let cur_byte = 0xFF & b;
+            let current = 0xFF & b;
             
             for (let x = 0; x < 8; ++x) {
-                if ((crc & 0x0001) ^ (cur_byte & 0x0001)) {
+                if ((crc & 0x0001) ^ (current & 0x0001)) {
 					crc = (crc >> 1) ^ poly;
 				} else {
 					crc >>= 1;
 				}                                       
-                cur_byte >>= 1;
+                current >>= 1;
             }
         }
         
