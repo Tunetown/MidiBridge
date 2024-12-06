@@ -25,11 +25,11 @@ const BRIDGE_CHUNK_SIZE = 100;
 class MidiHandler {
 
     #midiAccess = null;       // MIDIAccess instance
-    //#callbacks = null;
+    #callbacks = null;        // Callbacks to control the UI
 
     constructor(midiAccess, callbacks) {
         this.#midiAccess = midiAccess;
-        //this.#callbacks = callbacks;
+        this.#callbacks = callbacks;
     }
 
     /**
@@ -54,8 +54,6 @@ class MidiHandler {
             await this.#doConnectPortPair(pair);
                 
             console.log("   -> Scan: Port succeeded!", pair.output[1].name);
-
-            //this.#setupPort(port);
 
         } catch (e) {
             console.log("   -> Scan: Port failed", pair.output[1].name);
