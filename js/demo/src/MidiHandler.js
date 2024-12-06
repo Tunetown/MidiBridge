@@ -39,9 +39,6 @@ class MidiHandler {
         // Get all in/out pairs sharing the same name
         const ports = this.#getMatchingPortPairs();
 
-        this.#connectPortPair(ports[1]);
-        return
-
         // Start connecting to all of them (connectToPort will be called async without await 
         // for pseudo parallel processing)
         for (const pair of ports) {            
