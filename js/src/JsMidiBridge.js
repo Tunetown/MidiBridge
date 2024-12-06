@@ -1,5 +1,5 @@
 /**
- * Generic callbacks.
+ * MIDI Bridge to transfer string data between devices via MIDI.
  * 
  * (C) Thomas Weber 2024 tom-vibrant@gmx.de
  * 
@@ -131,12 +131,63 @@ class JsMidiBridge {
     #receiveLastChunk = -1;              // Counts received chunks
     
     throwExceptionsOnReceive = false;    // When receiving messages, throw exceptions instead of sending an error message (for testing)
-    
-    
-    constructor() {
-		this.callbacks = new Callbacks();
-	}	
 
+    /**
+     * Callback on errors received from the other side. message will be a string.
+     */
+    onError = async function(message) { console.error("Error from MIDI client: " + message) };
+
+    /**
+     * Callback to send System Exclusive MIDI messages. Both parameters will be arrays of integers in range [0..127].
+     */
+    sendSysex = async function(manufacturerId, data) { };
+
+    /**
+     * Callback to get file contents for the given path or file ID. Path will be a string.
+     */
+    getFile = async function(path) { throw new Error("No getFile callback set, cannot get data for " + path) };
+
+    /**
+     * Called when receiving starts. Data:
+     * {
+     *     path: 
+     *     fileId:
+     *     numChunks:
+     * }
+     */
+    onReceiveStart = async function(data) {};
+    
+    /**
+     * Called when a client sent an ack message. Data:
+     * {
+     *     fileId:
+     * }
+     */
+    onReceiveAck = async function(data) {};
+
+    /**
+     * Called on every sent chunk. Data:
+     * {
+     *     path: 
+     *     fileId:
+     *     chunk:      Index of the current chunk
+     *     numChunks:
+     * }
+     */
+    onReceiveProgress = async function(data) {};
+
+    /**
+     * Called when a file has fully been received.
+     * {
+     *     path: 
+     *     fileId:
+     *     data:       The string data
+     *     numChunks:
+     * }
+     */
+    onReceiveFinish = async function(data) {};
+
+    
     // Send Messages ##########################################################################################################
 
     /**
@@ -155,7 +206,7 @@ class JsMidiBridge {
         const fileIdBytes = this.generateFileId();     
 
         // Check if file exists and see how many chunks we will need
-        let data = await this.callbacks.execute("file.get", { path: path });
+        let data = await this.getFile(path);
         if (data === null) {
             throw new Error(path + " not found or empty");
         }        
@@ -291,9 +342,9 @@ class JsMidiBridge {
             
             if (commandId == JSON.stringify(JMB_ERROR_MESSAGE)) {
                 // Handle incoming error messages if an error handler is given
-                await this.callbacks.execute("error", {
-                    message: this.bytes2string(payload)
-                });
+                const message = this.bytes2string(payload);
+
+                await this.onError(message);
                 return;
             }
 
@@ -320,8 +371,8 @@ class JsMidiBridge {
             }
 
             // Ack message
-            else if (commandId == JSON.stringify(JMB_ACK_MESSAGE)) {
-                await this.callbacks.execute("receive.ack", {
+            else if (commandId == JSON.stringify(JMB_ACK_MESSAGE)) {                
+                await this.onReceiveAck({
 					fileId: fileIdBytes
 				});
 			}               
@@ -361,7 +412,8 @@ class JsMidiBridge {
         this.#receiveFilePath = this.bytes2string(payload.slice(JMB_NUMBER_SIZE_HALFBYTES));
         
         // Signal start of transmission
-        await this.callbacks.execute("receive.start", {
+        
+        await this.onReceiveStart({
 			path: this.#receiveFilePath,
 			fileId: fileIdBytes,
 			numChunks: this.#receiveAmountChunks
@@ -387,8 +439,8 @@ class JsMidiBridge {
 
         // Append to file
         this.#receiveBuffer += strData;
-        
-        await this.callbacks.execute("receive.progress", {
+            
+        await this.onReceiveProgress({
 			path: this.#receiveFilePath,
 			fileId: this.#receiveTransmissionId,
 			chunk: index,
@@ -405,7 +457,7 @@ class JsMidiBridge {
 	 * Finish receiving and send acknowledge message
 	 */
     async #receiveFinish() {
-        await this.callbacks.execute("receive.finish", {
+        await this.onReceiveFinish({
 			fileId: this.#receiveTransmissionId,
 			path: this.#receiveFilePath,
 			data: this.#receiveBuffer,
@@ -453,10 +505,7 @@ class JsMidiBridge {
 		if (!Array.isArray(manufacturerId)) throw new Error("Cannot send manufacturer id " + manufacturerId);
 		if (!Array.isArray(data)) throw new Error("Cannot send data " + data);
 		
-		await this.callbacks.execute("midi.sysex.send", {
-			manufacturerId: manufacturerId,
-			data: data
-		});
+        await this.sendSysex(manufacturerId, data);
 	}
 
 	/**

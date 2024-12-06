@@ -71,37 +71,37 @@ class MidiHandler {
         return new Promise(function(resolve, reject) {
             const bridge = new JsMidiBridge();
 
-            bridge.callbacks.register("Scan", "midi.sysex.send", async function(data) {
+            bridge.sendSysex = async function(manufacturerId, data) {
                 await that.#sendSysex(
                     pair.output[1],
-                    data.manufacturerId,
-                    data.data
+                    manufacturerId,
+                    data
                 )
-            });
+            }
 
-            bridge.callbacks.register("Scan", "receive.start", async function(data) {
+            bridge.onReceiveStart = async function(data) {
                 console.log("start", data)                
-            });
+            }
 
-            bridge.callbacks.register("Scan", "receive.finish", async function(data) {
+            bridge.onReceiveFinish = async function(data) {
                 console.log(" -> Scan Success! " + pair.output[1].name + ": Got start message, so someone is listening")
                 console.log(data.data)
                 resolve({
                     bridge: bridge,
                     pair: pair,
                 });
-            });
+            }
 
             // bridge.callbacks.register("Scan", "receive.progress", async function(data) {
             //     console.log("chunk", data)
             // });
 
-            bridge.callbacks.register("Scan", "error", async function(data) {
-                console.log(" -> Bridge error received, so we are right here", data)
+            bridge.onError = async function(message) {
+                console.log(" -> Bridge error received, so we are also right here", message)
                 resolve({
                     pair: pair
                 });
-            }); 
+            }
             
             // Attach listener
             that.#listenTo(pair.input[1], bridge);

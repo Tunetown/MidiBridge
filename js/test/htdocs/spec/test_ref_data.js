@@ -38,14 +38,14 @@ class TestMidiMessageRefData {
 				
 		let called = false
 		
-		bridge.callbacks.register("Test", "receive.finish", function(data) {
+		bridge.onReceiveFinish = function(data) {
 			expect(data.path).toEqual("foo");
 			expect(data.numChunks).toBeGreaterThan(0);
 			
 			expect(data.data).toEqual(test_data);
 			
 			called = true;			
-		});
+		}
 
         // Load messages
         const dataJson = TestDataHandler.get(fileName);

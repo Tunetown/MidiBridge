@@ -93,46 +93,50 @@ class TestProtocol {
 	async testSendReceive(path, inputData, expectedNumMessages, chunkSize) {
         const bridge = new JsMidiBridge();
         
-        bridge.callbacks.register("Test", "file.get", function(data) {
-			if (data.path == path) {
+        bridge.getFile = function(path_p) {
+			if (path_p == path) {
 				return inputData;	
 			}
-			if (data.path == "bar") {
+			if (path_p == "bar") {
 				return "Hello";
 			}						
-		});
+		}
 		
 		let start_called = false;
 		let finish_called = false;
 		
-		bridge.callbacks.register("Test", "receive.start", function(data) {
+		bridge.onReceiveStart = function(data) {
 			expect(data.path).toEqual(path);			
 			
 			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			start_called = true					
-		});
+		}
 
 		let progressCnt = 0;
-		bridge.callbacks.register("Test", "receive.progress", function(data) {
+		bridge.onReceiveProgress = function(data) {
 			expect(data.path).toEqual(path);
 			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			expect(data.chunk).toBe(progressCnt++);						
-		});
+		}
 
-		bridge.callbacks.register("Test", "receive.finish", function(data) {
+		bridge.onReceiveFinish = function(data) {
 			expect(data.path).toEqual(path);
 			expect(data.numChunks).toBe(expectedNumMessages - 1);
 			expect(data.data).toEqual(inputData);	
 			finish_called = true					
-		});
+		}
 		
 		let messagesSent = [];
 		
-		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
-			expect(Array.isArray(data.manufacturerId)).toBe(true);
-			expect(Array.isArray(data.data)).toBe(true);
-			messagesSent.push(data);	
-		});
+		bridge.sendSysex = function(manufacturerId, data) {
+			expect(Array.isArray(manufacturerId)).toBe(true);
+			expect(Array.isArray(data)).toBe(true);
+
+			messagesSent.push({
+                manufacturerId: manufacturerId,
+                data: data
+            });
+		}
         
         // Get a request message for the path
         await bridge.request(path, chunkSize);
@@ -245,11 +249,11 @@ class TestProtocol {
 
 		let called = false;
 
-		bridge.callbacks.register("Test", "error", function(data) {
-			expect(data.message).toContain(token);
+		bridge.onError = function(message) {
+			expect(message).toContain(token);
 			called = true					
-		});
-
+		}
+        
         await bridge.receive(midiMessage);
         
         expect(called).toBe(true);
@@ -267,9 +271,9 @@ class TestProtocol {
         
         let called = false;
 
-		bridge.callbacks.register("Test", "receive.ack", function() {
+		bridge.onReceiveAck = function(data) {
 			called = true					
-		});
+		}
 
         await bridge.receive(midiMessage)        
         
@@ -286,18 +290,21 @@ class TestProtocol {
    		let messagesSent = [];
 		let returnNull = false;
 		
-		bridge.callbacks.register("Test", "file.get", function(data) {
+		bridge.getFile = function(path) {
 			if (returnNull) {
 				return null;
 			}
-			if (data.path == "foo") {
+			if (path == "foo") {
 				return "ghtgf";
 			}
-		});
+		}
 		
-		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
-			messagesSent.push(data);	
-		});
+		bridge.sendSysex = function(manufacturerId, data) {
+			messagesSent.push({
+                manufacturerId: manufacturerId,
+                data: data
+            });	
+		}
 
         await bridge.request("foo", 20);
         const msgRequest = messagesSent[0];
@@ -307,8 +314,7 @@ class TestProtocol {
 
         await bridge.receive(msgRequest);
         
-        const lastMessage = messagesSent[messagesSent.length - 1];
-        
+        const lastMessage = messagesSent[messagesSent.length - 1];        
         await this.#evaluateError(lastMessage, "foo");
         await this.#evaluateError(lastMessage, "not found");
     }
@@ -318,15 +324,18 @@ class TestProtocol {
         
         let messagesSent = [];
 
-		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
-			messagesSent.push(data);	
-		});
+		bridge.sendSysex = function(manufacturerId, data) {
+			messagesSent.push({
+                manufacturerId: manufacturerId,
+                data: data
+            });	
+		}
 
-		bridge.callbacks.register("Test", "file.get", function(data) {
-			if (data.path == "foo") {
-				return "";
+		bridge.getFile = function(path) {
+			if (path == "foo") {
+				return null;
 			}
-		});
+		}
 
         await bridge.request("foo", 20);
         const msgRequest = messagesSent[0];
@@ -348,9 +357,12 @@ class TestProtocol {
         
         let messagesSent = [];
 
-		bridge.callbacks.register("Test", "midi.sysex.send", function(data) {
-			messagesSent.push(data);	
-		});
+		bridge.sendSysex = function(manufacturerId, data) {
+			messagesSent.push({
+                manufacturerId: manufacturerId,
+                data: data
+            });	
+		}
 		
         await bridge.request(expPath, expChunkSize);
 
