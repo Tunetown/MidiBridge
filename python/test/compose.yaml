@@ -1,5 +1,5 @@
 services:
-  python:
+  midibridge-python-test:
     build: .
     container_name: python3
     command: sleep infinity

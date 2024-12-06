@@ -1,5 +1,5 @@
 services:
-  test:
+  midibridge-js-test:
     build: .
     container_name: apache-test-jsmidibridge
     ports:
