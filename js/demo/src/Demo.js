@@ -52,8 +52,8 @@ class Demo {
 
             that.#midi = new MidiHandler(midiAccess, that.#callbacks);
 
-            // Scan for ports (will call a callback when finished, updating the selector)
-            await that.#midi.scan();
+            // Scan for ports 
+            that.#midi.attach();
         }
 
         async function onMIDIFailure(msg) {

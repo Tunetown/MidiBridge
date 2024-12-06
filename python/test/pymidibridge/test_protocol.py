@@ -12,35 +12,39 @@ class TestProtocol(unittest.TestCase):
             path = "foo",
             data = " ",
             expected_num_messages = 2,
-            use_event_handler = True
+            use_event_handler = True,
+            chunk_size = 100
         )
 
         # Ca. 180 bytes
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "| Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 2,
-            use_event_handler = False
+            expected_num_messages = 3,
+            use_event_handler = False,
+            chunk_size = 100
         )
 
         # A bit over 2 kB
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 4,
-            use_event_handler = True
+            expected_num_messages = 11,
+            use_event_handler = True,
+            chunk_size = 256
         )
 
         # ~ 5kB
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<> | Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 6,
-            use_event_handler = True
+            expected_num_messages = 43,
+            use_event_handler = True,
+            chunk_size = 115
         )
 
 
-    def _test_send_receive(self, path, data, expected_num_messages, use_event_handler):
+    def _test_send_receive(self, path, data, expected_num_messages, use_event_handler, chunk_size):
         midi = MockMidiSender()
         storage = MockStorageProvider()        
 
@@ -60,12 +64,12 @@ class TestProtocol(unittest.TestCase):
         )
 
         # Get a request message for the path
-        bridge.request(path)
+        bridge.request(path, chunk_size)
         msg_request = midi.messages_sent[0]
 
         # Get some messages related to another file
         midi.messages_sent = []
-        bridge.send("bar")
+        bridge.send("bar", 20)
         msgs_other_file = [m for m in midi.messages_sent]
         self.assertGreaterEqual(len(msgs_other_file), 2)
 
@@ -79,6 +83,9 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(len(storage.created_handles), 1)
         self.assertEqual(storage.created_handles[0].path, path)
         self.assertEqual(storage.created_handles[0].mode, "r")
+
+        for msg in midi.messages_sent:
+            self.assertLessEqual(len(msg.data), chunk_size * 2 + 8)
 
         # Are amount of generated messages
         self.assertEqual(len(midi.messages_sent), expected_num_messages)
@@ -212,10 +219,20 @@ class TestProtocol(unittest.TestCase):
         bridge = PyMidiBridge(None, None)
 
         with self.assertRaises(Exception):
-            bridge.send(None)
+            bridge.send(None, 1)
 
         with self.assertRaises(Exception):
-            bridge.send("")
+            bridge.send("", 1)
+
+
+    def test_send_invalid_chunk_size(self):
+        bridge = PyMidiBridge(None, None)
+
+        with self.assertRaises(Exception):
+            bridge.send("foo", 0)
+
+        with self.assertRaises(Exception):
+            bridge.send("foo", -1)
 
 
     def test_request_file_not_found(self):
@@ -235,7 +252,7 @@ class TestProtocol(unittest.TestCase):
             "foo": "ghtgf"
         }
 
-        bridge.request("foo")
+        bridge.request("foo", 20)
         msg_request = midi.last_message
 
         bridge.receive(msg_request)
@@ -264,7 +281,7 @@ class TestProtocol(unittest.TestCase):
             "foo": ""
         }
 
-        bridge.request("foo")
+        bridge.request("foo", 20)
         msg_request = midi.last_message
 
         bridge.receive(msg_request)
@@ -276,12 +293,12 @@ class TestProtocol(unittest.TestCase):
 
 
     def test_request_file(self):
-        self._test_request_file(" ")
-        self._test_request_file("foo")
-        self._test_request_file("/foo/path/to/bar.txt")
+        self._test_request_file(" ", 10)
+        self._test_request_file("foo", 1)
+        self._test_request_file("/foo/path/to/bar.txt", 5600)
 
 
-    def _test_request_file(self, path):
+    def _test_request_file(self, exp_path, exp_chunk_size):
         midi = MockMidiSender()
 
         bridge = PyMidiBridge(
@@ -289,16 +306,18 @@ class TestProtocol(unittest.TestCase):
             storage = None
         )        
         
-        bridge.request(path)
+        bridge.request(exp_path, exp_chunk_size)
 
         msg_sent = midi.messages_sent[0]
         self.assertEqual(msg_sent.manufacturer_id, PMB_MANUFACTURER_ID)
         self.assertEqual(msg_sent.data[:1], PMB_REQUEST_MESSAGE)
 
         checksum = msg_sent.data[1:4]
-        payload = bridge._bytes_2_string(msg_sent.data[4:])
+        chunk_size = bridge._bytes_2_number(msg_sent.data[4:8])
+        path = bridge._bytes_2_string(msg_sent.data[8:])
         
-        self.assertEqual(payload, path)
+        self.assertEqual(path, exp_path)
+        self.assertEqual(chunk_size, exp_chunk_size)
         self.assertEqual(checksum, bridge._get_checksum(msg_sent.data[4:]))
 
 
@@ -306,10 +325,20 @@ class TestProtocol(unittest.TestCase):
         bridge = PyMidiBridge(None, None)
 
         with self.assertRaises(Exception):
-            bridge.request(None)
+            bridge.request(None, 20)
 
         with self.assertRaises(Exception):
-            bridge.request("")
+            bridge.request("", 2)
+
+
+    def test_request_invalid_chunk_size(self):
+        bridge = PyMidiBridge(None, None)
+
+        with self.assertRaises(Exception):
+            bridge.request("foo", 0)
+
+        with self.assertRaises(Exception):
+            bridge.request("foo", -1)
 
 
 ############################################################################################################

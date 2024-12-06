@@ -15,6 +15,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. 
  */
 
+/**
+ * Chunk size for requesting data. The Web MIDI API does silently fail on incoming messages
+ * too big, by experiment 111 was the value which was working any time. Should be fixed with
+ * issue #158 of the API, which sadly is still open.
+ */
+const BRIDGE_CHUNK_SIZE = 100;
+
 class MidiHandler {
 
     #midiAccess = null;       // MIDIAccess instance
@@ -26,99 +33,42 @@ class MidiHandler {
     }
 
     /**
-     * Scan for ports (will call a callback when finished, updating the selector)
+     * Scan for ports with bridges behind (attach a bridge to every port, and see where sometging is coming back)
      */
-    async scan() {
-        const ports = this.#getMatchingPorts();
-                
-        for (const port of ports) {
-            // Called async!
-            this.#checkPort(port);
+    attach() {
+        // Get all in/out pairs sharing the same name
+        const ports = this.#getMatchingPortPairs();
+
+        this.#connectPortPair(ports[1]);
+        return
+
+        // Start connecting to all of them (connectToPort will be called async without await 
+        // for pseudo parallel processing)
+        for (const pair of ports) {            
+            this.#connectPortPair(pair);
         }        
     }
 
     /**
-     * Check if the port has a bridge behind it (async, to have this process pseudo-parallel)
+     * Connect to a port pair (exception handling, the work is done in doConnectPort)
      */
-    async #checkPort(port) {
+    async #connectPortPair(pair) {
         try {
-            const data = await this.#checkIfPortIsListening(port);
+            await this.#doConnectPortPair(pair);
                 
-            console.log("   -> Scan: Port succeeded!", port.output[1].name);
+            console.log("   -> Scan: Port succeeded!", pair.output[1].name);
 
-            this.#setupPort(port);
+            //this.#setupPort(port);
 
-        } catch (port) {
-            console.log("   -> Scan: Port failed", port.output[1].name);
+        } catch (e) {
+            console.log("   -> Scan: Port failed", pair.output[1].name);
         }        
     }
 
     /**
-     * Set up a port for productive use
+     * Connect to a port pair. 
      */
-    async #setupPort(port) {
-        const bridge = new JsMidiBridge();
-
-        bridge.callbacks.register("Demo App", "receive.start", async function(data) {
-            console.log("Received start", data)
-        });
-
-        bridge.callbacks.register("Demo App", "error", async function(data) {
-            console.error("Received error", data)
-        }); 
-        
-        bridge.callbacks.register("Demo App", "receive.progress", async function(data) {
-            console.log("Received progress", data)
-        }); 
-
-        bridge.callbacks.register("Demo App", "receive.finish", async function(data) {
-            console.log("Received finish", data)
-        }); 
-
-        this.#listenTo(port.input[1], bridge);
-
-        await bridge.request("/switches.py");   // TODO control via UI
-
-        console.log("FIN")
-    }
-
-    /**
-     * Start listening to a port (connects the bridge to it)
-     */
-    #listenTo(port, bridge) {
-        console.log("Listening to port " + port.name)
-
-        port.onmidimessage = async function(event) {       
-            // Check if its a sysex message
-            if (event.data[0] != 0xf0 || event.data[event.data.length - 1] != 0xf7) {
-                return;
-            }
-
-            const manufacturerId = Array.from(event.data).slice(1, 4);
-            const data = Array.from(event.data).slice(4, event.data.length - 1);
-            
-            console.log("SysEx coming in on " + port.name + ":")
-            console.log(manufacturerId, data);
-
-            // Pass it to the bridge
-            await bridge.receive({
-                manufacturerId: manufacturerId,
-                data: data
-            });
-        }
-    }
-
-    /**
-     * Stop listening to a port
-     */
-    #unlisten(port) {
-        port.onmidimessage = null;
-    }
-
-    /**
-     * Check if the port has a bridge behind it. Rejects when not.  
-     */
-    async #checkIfPortIsListening(port) {
+    async #doConnectPortPair(pair) {
         const that = this;
 
         return new Promise(function(resolve, reject) {
@@ -126,7 +76,7 @@ class MidiHandler {
 
             bridge.callbacks.register("Scan", "midi.sysex.send", async function(data) {
                 await that.#sendSysex(
-                    port.output[1],
+                    pair.output[1],
                     data.manufacturerId,
                     data.data
                 )
@@ -137,27 +87,56 @@ class MidiHandler {
             });
 
             bridge.callbacks.register("Scan", "receive.finish", async function(data) {
-                console.log(" -> Scan Success! " + port.output[1].name + ": Got start message, so someone is listening")
-                that.#unlisten(port.input[1]);
-                resolve(port);
+                console.log(" -> Scan Success! " + pair.output[1].name + ": Got start message, so someone is listening")
+                console.log(data.data)
+                resolve({
+                    bridge: bridge,
+                    pair: pair,
+                });
             });
 
-            bridge.callbacks.register("Scan", "receive.progress", async function(data) {
-                console.log("chunk", data)
-            });
+            // bridge.callbacks.register("Scan", "receive.progress", async function(data) {
+            //     console.log("chunk", data)
+            // });
 
             bridge.callbacks.register("Scan", "error", async function(data) {
-                console.error(" -> Scan Failed. Nobody listening", data)
-                that.#unlisten(port.input[1]);
-                reject(port);
+                console.log(" -> Bridge error received, so we are right here", data)
+                resolve({
+                    pair: pair
+                });
             }); 
             
             // Attach listener
-            that.#listenTo(port.input[1], bridge);
+            that.#listenTo(pair.input[1], bridge);
 
-            // Request sometihing
-            bridge.request("/switches.py");  // TODO use getcwd instead
+            bridge.request("/", BRIDGE_CHUNK_SIZE);
         });
+    }
+
+    /**
+     * Start listening to a port (connects the bridge to it)
+     */
+    #listenTo(port, bridge) {
+        console.log("Listening to port " + port.name)
+
+        port.onmidimessage = async function(event) {
+            // Check if its a sysex message
+            if (event.data[0] != 0xf0) { //} || event.data[event.data.length - 1] != 0xf7) {
+                return;
+            }
+
+            const manufacturerId = Array.from(event.data).slice(1, 4);
+            const data = Array.from(event.data).slice(4, event.data.length - 1);
+            
+            //console.log("SysEx coming in on " + port.name + " (" + event.data.length + " bytes):")
+            //console.log(manufacturerId, data);
+
+            // Pass it to the bridge
+            await bridge.receive({
+                manufacturerId: manufacturerId,
+                data: data
+            });
+        }
     }
 
     /**
@@ -167,7 +146,7 @@ class MidiHandler {
      *     output:
      * }
      */
-    #getMatchingPorts() {
+    #getMatchingPortPairs() {
         const ret = [];
 
         // Inputs
