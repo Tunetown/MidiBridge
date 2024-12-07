@@ -18,11 +18,21 @@
 /**
  * Chunk size for requesting data. The Web MIDI API does silently fail on incoming messages
  * too big, by experiment 111 was the value which was working any time. Should be fixed with
- * issue #158 of the API, which sadly is still open.
+ * issue https://github.com/WebAudio/web-midi-api/issues/158 of the Web MIDI API, which sadly is 
+ * still open at the time of writing this (12/2024). Later this could be enlarged to reduce
+ * protocol overhead.
  */
 const BRIDGE_CHUNK_SIZE = 100;
 
-class MidiHandler {
+/**
+ * Timeout until it is assumed there is no client listening
+ */
+const TIMEOUT_INTERVAL_MILLIS = 1000;
+
+/**
+ * Use this class to initialize the bridge. You can either use scan() or directly connect() to a pair of input/output ports.
+ */
+class MidiBridgeHandler {
 
     #midiAccess = null;       // MIDIAccess instance
     #callbacks = null;        // Callbacks to control the UI
@@ -33,60 +43,63 @@ class MidiHandler {
     }
 
     /**
-     * Scan for ports with bridges behind (attach a bridge to every port, and see where sometging is coming back)
+     * Scan for ports with bridges behind (attach a bridge to every port, and see where something is coming back).
      */
-    attach() {
+    scan() {
         // Get all in/out pairs sharing the same name
         const ports = this.#getMatchingPortPairs();
 
         // Start connecting to all of them (connectToPort will be called async without await 
         // for pseudo parallel processing)
         for (const pair of ports) {            
-            this.#connectPortPair(pair);
+            this.#scanPorts(pair.input, pair.output);
         }        
     }
 
     /**
-     * Connect to a port pair (exception handling, the work is done in doConnectPort)
+     * Connect to a MIDI port pair. 
      */
-    async #connectPortPair(pair) {
+    async #scanPorts(input, output) {
         try {
-            await this.#doConnectPortPair(pair);
+            await this.connect(input, output);
                 
-            console.log("   -> Scan: Port succeeded!", pair.output[1].name);
+            console.log("   -> Connection success with ", output.name);
 
         } catch (e) {
-            console.log("   -> Scan: Port failed", pair.output[1].name);
+            console.log("   -> Failed to connect to ", output.name);
         }        
     }
 
     /**
      * Connect to a port pair. 
      */
-    async #doConnectPortPair(pair) {
+    async connect(input, output) {
         const that = this;
+
+        const path = "notexistingfile";
 
         return new Promise(function(resolve, reject) {
             const bridge = new JsMidiBridge();
 
             bridge.sendSysex = async function(manufacturerId, data) {
                 await that.#sendSysex(
-                    pair.output[1],
+                    output,
                     manufacturerId,
                     data
                 )
             }
 
-            bridge.onReceiveStart = async function(data) {
-                console.log("start", data)                
-            }
+            // bridge.onReceiveStart = async function(data) {
+            //     //console.log("start", data)                
+            // }
 
             bridge.onReceiveFinish = async function(data) {
-                console.log(" -> Scan Success! " + pair.output[1].name + ": Got start message, so someone is listening")
-                console.log(data.data)
+                //console.log(" -> Scan Success! " + output.name + ": Got a message, so someone is listening")                
+                clearTimeout(timeout);
                 resolve({
                     bridge: bridge,
-                    pair: pair,
+                    input: input,
+                    output: output
                 });
             }
 
@@ -95,28 +108,40 @@ class MidiHandler {
             // });
 
             bridge.onError = async function(message) {
-                console.log(" -> Bridge error received, so we are also right here", message)
+                //console.log(" -> Scan Success! " + output.name + ": Got an answer, so someone is listening");
+                clearTimeout(timeout);
                 resolve({
-                    pair: pair
+                    bridge: bridge,
+                    input: input,
+                    output: output
                 });
             }
             
             // Attach listener
-            that.#listenTo(pair.input[1], bridge);
+            that.#listenTo(input, bridge);
 
-            bridge.request("/", BRIDGE_CHUNK_SIZE);
+            bridge.request(path, BRIDGE_CHUNK_SIZE);
+
+            // Timeout
+            let timeout = setTimeout(function() {
+                //console.log(" -> Timeout for " + pair.output[1].name);
+                reject({
+                    input: input,
+                    output: output
+                });
+            }, TIMEOUT_INTERVAL_MILLIS);
         });
     }
 
     /**
      * Start listening to a port (connects the bridge to it)
      */
-    #listenTo(port, bridge) {
-        console.log("Listening to port " + port.name)
+    #listenTo(input, bridge) {
+        console.log("Listening to input port " + input.name)
 
-        port.onmidimessage = async function(event) {
+        input.onmidimessage = async function(event) {
             // Check if its a sysex message
-            if (event.data[0] != 0xf0) { //} || event.data[event.data.length - 1] != 0xf7) {
+            if (event.data[0] != 0xf0 || event.data[event.data.length - 1] != 0xf7) {
                 return;
             }
 
@@ -146,17 +171,17 @@ class MidiHandler {
 
         // Inputs
         for (const input of this.#midiAccess.inputs) {
-            const in_data = input[1];
+            const in_handler = input[1];
 
             // Get corresponding output
             for (const output of this.#midiAccess.outputs) {
-                const out_data = output[1];
+                const out_handler = output[1];
 
-                if ((out_data.manufacturer == in_data.manufacturer) && (out_data.name == in_data.name)) {
-                    console.log("Scan: Found matching ins/outs: " + out_data.name);
+                if ((out_handler.manufacturer == in_handler.manufacturer) && (out_handler.name == in_handler.name)) {
+                    console.log("Scan: Found matching ins/outs: " + out_handler.name);
                     ret.push({
-                        input: input,
-                        output: output
+                        input: in_handler,
+                        output: out_handler
                     });
                 }
             }
@@ -168,7 +193,7 @@ class MidiHandler {
     /**
      * Send a sysex message to the passed output Port (instance of MIDIOutput)
      */
-    async #sendSysex(outputPort, manufacturerId, data) {
+    async #sendSysex(output, manufacturerId, data) {
         const msg = [
             0xf0
         ].concat(
@@ -179,8 +204,6 @@ class MidiHandler {
             ]
         );
 
-        //console.log("Sending message to " + outputPort.name + ": ", msg);
-        
-        await outputPort.send(msg);
+        await output.send(msg);
     }
 }

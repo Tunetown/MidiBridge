@@ -33,7 +33,7 @@ class Demo {
         // Build DOM
         this.#ui.build();
 
-        // Setup MIDI communication (run async!)
+        // Setup MIDI communication (intentionally run async)
         this.#setupMidi();
     }
 
@@ -44,22 +44,24 @@ class Demo {
         const that = this
 
         async function onMIDISuccess(midiAccess) {
-            console.log("MIDI ready!");
-
             if (!midiAccess.sysexEnabled) {
                 throw new Error("You must allow SystemExclusive messages");
             }
 
-            that.#midi = new MidiHandler(midiAccess, that.#callbacks);
+            console.log("MIDI ready");
+
+            // Use a handler class for accessing the bridge and creating the connection
+            that.#midi = new MidiBridgeHandler(midiAccess, that.#callbacks);
 
             // Scan for ports 
-            that.#midi.attach();
+            that.#midi.scan();
         }
 
         async function onMIDIFailure(msg) {
-            console.error(`Failed to get MIDI access - ${msg}`);
+            console.error('Failed to get MIDI access: ' + msg);
         }
 
-        await navigator.requestMIDIAccess({ sysex: true }).then(onMIDISuccess, onMIDIFailure);
+        await navigator.requestMIDIAccess({ sysex: true })
+            .then(onMIDISuccess, onMIDIFailure);
     }
 }
