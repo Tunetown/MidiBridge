@@ -1,7 +1,7 @@
 import unittest
 
 # Import subject under test
-from lib.pymidibridge import PyMidiBridge
+from lib.pymidibridge.pymidibridge import PyMidiBridge
 
 from .mocks import *
 

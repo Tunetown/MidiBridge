@@ -1,0 +1,111 @@
+html {
+	margin: 0;
+    padding: 0;	
+}
+
+body {
+	margin: 0;
+    padding: 0;	
+
+    background-color: #aaa;
+
+    font-family: Avenir, Calibri, Helvetica, Arial, sans-serif;
+}
+
+
+#content {
+    display: grid;
+
+    width: 100vw;
+    height: 100vh;
+
+    grid-template-rows: min-content auto;
+    grid-template-columns: auto;
+
+    position: relative;	
+
+    overflow: hidden;
+}
+
+.path {
+    grid-row: 1;
+    grid-column: 1;
+
+    background-color: red;
+
+    padding: 5px;
+}
+
+.path > input {
+    width: 90%;
+}
+
+.editor {
+    grid-row: 2;
+    grid-column: 1;
+
+    background-color: yellow;
+
+    container-type: size;
+}
+
+.CodeMirror {
+	width: 100cqw;
+	height: 100cqh;
+}
+ 
+
+.block {
+    position: absolute;
+    top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: #aaa;
+    opacity: 0.5;
+}
+
+.progressBarOuterContainer {
+	display: block;
+	
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	height: 1em;
+	width: 50%;
+}
+
+.progressBarContainer {
+	display: block; 
+	
+	position: relative;
+	top: -50%;
+	left: -50%;
+	height: 100%;
+}
+
+.progressBarBack {
+	position: absolute;
+	top: 0;
+	left: 0;
+	
+	background: #000;
+	
+	border-radius: 1em;
+	
+	height: 100%;
+	width: 100%;	
+	overflow: hidden;
+}
+
+.progressBar {
+	position: absolute;
+	top: 0;
+	left: 0;
+	
+	height: 100%;
+	width: 0;
+	background: #c0ff61;
+	
+	transition: width 0.06s;
+}

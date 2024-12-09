@@ -19,49 +19,86 @@ class Demo {
 
     #midi = null        // MIDIAccess object
     #ui = null;         // User interface
-    #callbacks = null;  // Like the bridge internally, we use a callback based approach for everything
+    //#callbacks = null;  // Like the bridge internally, we use a callback based approach for everything
+    routing = null;
+    #bridge = null;
 
-    constructor(ui) {
-        this.#ui = ui;
-        this.#callbacks = new Callbacks();
+    constructor(ui) {        
+        this.#ui = ui;        
+
+        this.#ui.init(this);
+        //this.#callbacks = new Callbacks();
     }
 
     /**
      * Run the app
      */
-    run() {
+    async run() {
         // Build DOM
-        this.#ui.build();
+        this.#ui.build();        
 
-        // Setup MIDI communication (intentionally run async)
-        this.#setupMidi();
+        // MIDI bridge handler
+        this.#midi = new MidiBridgeHandler();
+
+        // Router
+        this.routing = new Routing(this);
+
+        // Initialize bridge.
+        try {
+            await this.#midi.init();
+
+            const that = this;
+            await this.#midi.scan(function(data) {
+                if (that.#bridge) return;   // Already connected
+
+                that.#initConnection(data.bridge);
+
+                that.routing.run();
+            });
+
+            
+        } catch (e) {
+            console.error(e);
+        }        
     }
 
     /**
-     * Sets up MIDI communication
+     * Loads and shows the given path. Called by routing.
      */
-    async #setupMidi() {
-        const that = this
+    open(path) {
+        console.log("Open " + path)
 
-        async function onMIDISuccess(midiAccess) {
-            if (!midiAccess.sysexEnabled) {
-                throw new Error("You must allow SystemExclusive messages");
-            }
+        this.#ui.showPath(path);
+        this.#ui.showContent("Loading...");
 
-            console.log("MIDI ready");
+        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);
+    }
 
-            // Use a handler class for accessing the bridge and creating the connection
-            that.#midi = new MidiBridgeHandler(midiAccess, that.#callbacks);
+    /**
+     * Set up callbacks
+     */
+    #initConnection(bridge) {
+        const that = this;
 
-            // Scan for ports 
-            that.#midi.scan();
+        bridge.onReceiveStart = async function(data) {
+            that.#ui.showPath(data.path);
+            that.#ui.progress(0, "Loading " + data.path);
+        };
+
+        bridge.onReceiveProgress = async function(data) {
+            that.#ui.progress((data.chunk + 1) / data.numChunks, "Loading chunk " + data.chunk + " of " + data.numChunks);
+        };
+
+        bridge.onReceiveFinish = async function(data) {
+            that.#ui.showContent(data.data);
+            that.#ui.progress(1);
+        };
+
+        bridge.onError = async function(message) {
+            console.error(message);
+            that.#ui.error(message);
         }
 
-        async function onMIDIFailure(msg) {
-            console.error('Failed to get MIDI access: ' + msg);
-        }
-
-        await navigator.requestMIDIAccess({ sysex: true })
-            .then(onMIDISuccess, onMIDIFailure);
+        this.#bridge = bridge;
     }
 }

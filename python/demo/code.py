@@ -1,8 +1,13 @@
+########################################################################################################
+# 
+# This demo enables PyMidiBridge communication over the USB MIDI Port.
+#
+########################################################################################################
 
 from usb_midi import ports
 from adafruit_midi import MIDI
 
-from MidiBridgeWrapper import MidiBridgeWrapper
+from pymidibridge.MidiBridgeWrapper import MidiBridgeWrapper
 
 # Adafruit MIDI
 midi = MIDI(
@@ -18,6 +23,8 @@ wrapper = MidiBridgeWrapper(
     temp_file_path = '/.bridge'
 )
 
+print("Listening to MIDI bridge messages...")
+
 # Here, the message loop is implemented directly. You will normally have this loop inside your script.
 try:
     # Receive MIDI messages. The wrapper will pass the stuff to the MIDI bridge.
@@ -25,6 +32,7 @@ try:
         midi_message = wrapper.receive()
 
         # ... do something with the message in your application
+        xx
 
 except Exception as e:
     # In case of errors, we want the bridge to be functional so we can fix the errors via MIDI.
@@ -32,5 +40,5 @@ except Exception as e:
     # a receive loop listening to bridge messages until reboot.
     import traceback
     message = traceback.format_exception(None, e, e.__traceback__)
-    midi.error(message)
+    wrapper.error(message)
     

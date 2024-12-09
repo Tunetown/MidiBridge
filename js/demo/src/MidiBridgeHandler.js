@@ -27,7 +27,7 @@ const BRIDGE_CHUNK_SIZE = 100;
 /**
  * Timeout until it is assumed there is no client listening
  */
-const TIMEOUT_INTERVAL_MILLIS = 1000;
+const TIMEOUT_INTERVAL_MILLIS = 10000;
 
 /**
  * Use this class to initialize the bridge. You can either use scan() or directly connect() to a pair of input/output ports.
@@ -35,48 +35,80 @@ const TIMEOUT_INTERVAL_MILLIS = 1000;
 class MidiBridgeHandler {
 
     #midiAccess = null;       // MIDIAccess instance
-    #callbacks = null;        // Callbacks to control the UI
 
-    constructor(midiAccess, callbacks) {
-        this.#midiAccess = midiAccess;
-        this.#callbacks = callbacks;
+    /**
+     * Sets up MIDI communication
+     */
+    async init() {
+        const that = this
+
+        return new Promise(function(resolve, reject) {
+            async function onMIDISuccess(midiAccess) {
+                if (!midiAccess.sysexEnabled) {
+                    reject({ message: "You must allow SystemExclusive messages" });
+                }
+
+                console.log("MIDI ready");
+
+                // Use a handler class for accessing the bridge and creating the connection
+                that.#midiAccess = midiAccess;
+
+                resolve();
+            }
+
+            async function onMIDIFailure(msg) {
+                reject({ message: "Failed to get MIDI access: " + msg });
+            }
+
+            navigator.requestMIDIAccess({ sysex: true })
+                .then(onMIDISuccess, onMIDIFailure);
+        });
     }
 
     /**
      * Scan for ports with bridges behind (attach a bridge to every port, and see where something is coming back).
+     * onFinish can be a callback like (data) => void, where data is like: 
+     * {
+     *     bridge: Bridge instance to attach callbacks on. The sendSysex callback is already set.
+     *     input: Input port (MIDIInput)
+     *     output: Output port (MIDIOutput)
+     * }
      */
-    scan() {
+    scan(onFinish = null) {
+        const that = this;
+
+        async function scanPorts(input, output) {
+            try {
+                const connection = await that.connect(input, output);                
+
+                console.log("   -> Connection success with ", output.name);
+
+                if (onFinish) {
+                    onFinish(connection);
+                }
+    
+            } catch (e) {
+                console.log("   -> Failed to connect to ", output.name);
+            }        
+        }
+
         // Get all in/out pairs sharing the same name
         const ports = this.#getMatchingPortPairs();
 
         // Start connecting to all of them (connectToPort will be called async without await 
         // for pseudo parallel processing)
         for (const pair of ports) {            
-            this.#scanPorts(pair.input, pair.output);
-        }        
-    }
-
-    /**
-     * Connect to a MIDI port pair. 
-     */
-    async #scanPorts(input, output) {
-        try {
-            await this.connect(input, output);
-                
-            console.log("   -> Connection success with ", output.name);
-
-        } catch (e) {
-            console.log("   -> Failed to connect to ", output.name);
+            scanPorts(pair.input, pair.output);
         }        
     }
 
     /**
      * Connect to a port pair. 
      */
-    async connect(input, output) {
+    async connect(input, output, onFinish) {
         const that = this;
 
-        const path = "notexistingfile";
+        const path = "/notexistingfile";
 
         return new Promise(function(resolve, reject) {
             const bridge = new JsMidiBridge();
@@ -89,12 +121,10 @@ class MidiBridgeHandler {
                 )
             }
 
-            // bridge.onReceiveStart = async function(data) {
-            //     //console.log("start", data)                
-            // }
-
-            bridge.onReceiveFinish = async function(data) {
-                //console.log(" -> Scan Success! " + output.name + ": Got a message, so someone is listening")                
+            async function receive(data) {
+                bridge.onReceiveFinish = null;
+                bridge.onError = null;
+                
                 clearTimeout(timeout);
                 resolve({
                     bridge: bridge,
@@ -103,19 +133,8 @@ class MidiBridgeHandler {
                 });
             }
 
-            // bridge.callbacks.register("Scan", "receive.progress", async function(data) {
-            //     console.log("chunk", data)
-            // });
-
-            bridge.onError = async function(message) {
-                //console.log(" -> Scan Success! " + output.name + ": Got an answer, so someone is listening");
-                clearTimeout(timeout);
-                resolve({
-                    bridge: bridge,
-                    input: input,
-                    output: output
-                });
-            }
+            bridge.onReceiveFinish = receive;
+            bridge.onError = receive;
             
             // Attach listener
             that.#listenTo(input, bridge);
@@ -123,16 +142,18 @@ class MidiBridgeHandler {
             bridge.request(path, BRIDGE_CHUNK_SIZE);
 
             // Timeout
-            let timeout = setTimeout(function() {
-                //console.log(" -> Timeout for " + pair.output[1].name);
-                reject({
-                    input: input,
-                    output: output
-                });
-            }, TIMEOUT_INTERVAL_MILLIS);
+            let timeout = setTimeout(
+                function() {
+                    reject({
+                        input: input,
+                        output: output
+                    });
+                }, 
+                TIMEOUT_INTERVAL_MILLIS
+            );
         });
     }
-
+    
     /**
      * Start listening to a port (connects the bridge to it)
      */

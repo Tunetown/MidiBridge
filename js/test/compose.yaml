@@ -10,7 +10,7 @@ services:
       - ../../python/test/data:/var/www/html/test/data
 
       - ../demo:/var/www/html/demo
-      - ../src:/var/www/html/demo/lib      
+      - ../src:/var/www/html/demo/lib/jsmidibridge      
       
       - ./apache2-conf:/etc/apache2/sites-available
       #- ./apache2-log:/var/log/apache2

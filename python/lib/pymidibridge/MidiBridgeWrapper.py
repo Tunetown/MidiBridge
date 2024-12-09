@@ -7,7 +7,7 @@
 import json
 from os import stat, rename, listdir
 from adafruit_midi.system_exclusive import SystemExclusive
-from pymidibridge import PyMidiBridge
+from .pymidibridge import PyMidiBridge
 
 
 # This passes all MIDI through to/from the passed MIDI handler, plus the PyMidiBridge is 
@@ -136,8 +136,8 @@ class _StorageProvider:
 
     # File handle for folder listing (used whenever the path is a directory)
     class _FileHandleListDir:
-        def __init__(self, path):
-            self._listing = json.dumps(listdir(path))
+        def __init__(self, content):
+            self._listing = content
 
         # Must read from the file handle
         def read(self, amount_bytes):
@@ -159,10 +159,16 @@ class _StorageProvider:
         
     # Must return file size. In case of directories, we return the size of the string to be sent.
     def size(self, path):
-        if self._is_dir(path):
-            return len(json.dumps(listdir(path)))
+        try:
+            if self._is_dir(path):
+                return len(self._get_folder_listing(path))
+            
+            return stat(path)[6]
         
-        return stat(path)[6]
+        except OSError as e:
+            if e.errno == 2:
+                return -1
+            raise e
     
     # Must return an opened file handle
     def open(self, path, mode):
@@ -176,7 +182,7 @@ class _StorageProvider:
             if self._is_dir(path):
                 # Return a folder listing
                 return self._FileHandleListDir(
-                    path = path
+                    content = self._get_folder_listing(path)
                 )
             else:
                 # Read a file
@@ -186,4 +192,22 @@ class _StorageProvider:
 
     # Is path a folder?
     def _is_dir(self, path):
-        return stat(path)[0] > 0
+        return stat(path)[0] == 16384
+    
+    # Returns the string for folder listings.
+    def _get_folder_listing(self, path):
+        if not path[-1] == "/":
+            path += "/"
+
+        data = []
+        for file in listdir(path):
+            stats = stat(path + file)
+
+            data.append([
+                file,
+                stats[0] == 16384,
+                stats[6]
+            ])
+            
+        return json.dumps(data)
+
