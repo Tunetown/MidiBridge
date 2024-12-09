@@ -34,15 +34,23 @@ describe('Protocol', function() {
             43,
             115
         )
+
+        // Some UTF-8
+        await test.testSendReceive(
+            "/foo/path/to/bar.txt",
+            "Some UTF-8 content: €€~~{}[]¢[]",
+            2,
+            115
+        )
     });
     
     
     it('Send: No path', async function() {
 		const bridge = new JsMidiBridge();
 	    	    
-	    await expectAsync(bridge.send(null)).toBeRejected();
-	    await expectAsync(bridge.send("")).toBeRejected();
-	    await expectAsync(bridge.send(false)).toBeRejected();	        		
+	    await expectAsync(bridge.sendFile(null)).toBeRejected();
+	    await expectAsync(bridge.sendFile("")).toBeRejected();
+	    await expectAsync(bridge.sendFile(false)).toBeRejected();	        		
 	});	
 	
 	
@@ -72,17 +80,17 @@ describe('Protocol', function() {
 		await expectAsync(bridge.request(false)).toBeRejected();
 	});	
 	
-	it('Request: Generate file ID', async function() {
+	it('Request: Generate transmission ID', async function() {
 		const bridge = new JsMidiBridge();
         const buffer = [];
 
         for (let i = 0; i < 100; ++i) {
-            const fileId = bridge.generateFileId();
+            const transmissionId = bridge.generateTransmissionId();
 
-            expect(fileId).toBeInstanceOf(Uint8Array);
-            expect(fileId.length).toBe(4);
+            expect(transmissionId).toBeInstanceOf(Uint8Array);
+            expect(transmissionId.length).toBe(4);
 
-            buffer.push(fileId);
+            buffer.push(transmissionId);
         }         
 	});	
 });
@@ -144,19 +152,21 @@ class TestProtocol {
 
         // Get some messages related to another file
         messagesSent = [];
-        await bridge.send("bar", 20);
+        
+        await bridge.sendFile("bar", 20);
         const msgsOtherFile = messagesSent.slice();
+        
         expect(msgsOtherFile.length).toBeGreaterThanOrEqual(2);
 
         messagesSent = []
 
         // Let the bridge receive a request message, to trigger it sending a file
-        await bridge.receive(msgRequest);
+        expect(await bridge.receive(msgRequest)).toBe(true);
 
         // Are amount of generated messages
         expect(messagesSent.length).toBe(expectedNumMessages);
 
-        for(const msg of messagesSent) {
+        for(const msg of messagesSent) {
             expect(msg.data.length).toBeLessThanOrEqual(chunkSize * 2 + 8);
         }
         
@@ -168,7 +178,7 @@ class TestProtocol {
         for (const msg of msgs) {
             messagesSent = [];
 
-            await bridge.receive(msg);
+            expect(await bridge.receive(msg)).toBe(true);
 
             if (cnt == msgs.length - 1) {
                 // Last message: Must have an ack message sent
@@ -180,36 +190,42 @@ class TestProtocol {
             if (failureTestsDone) continue;
             
             // Put in some invalid messages too: Different manufacturer ID (no Exception)
-            await bridge.receive(
-                {
-                    manufacturerId: [0x00, 0x01, 0x02],
-                    data: [0x00, 0xac, 0xdc]
-                }
-            )
+            expect(
+                await bridge.receive(
+                    {
+                        manufacturerId: [0x00, 0x01, 0x02],
+                        data: [0x00, 0xac, 0xdc]
+                    }
+                )
+            ).toBe(false);
 
             // Null (no Exception)
-            await bridge.receive(null);
+            expect(await bridge.receive(null)).toBe(false);
 
             // Transmission errors: Change some byte (must return an error message)
+            messagesSent = [];
             const invalidData = [];
             for (let i = 0; i < msg.data.length; ++i) {
 				invalidData.push(i != 1 ? msg.data[i] : msg.data[i - 1])
 			}
             
-            await bridge.receive(
-                {
-                    manufacturerId: msg.manufacturerId,
-                    data: invalidData
-                }
-            )
-            await this.#evaluateError(messagesSent[messagesSent.length - 1], "Checksum");
+            expect(
+                await bridge.receive(
+                    {
+                        manufacturerId: msg.manufacturerId,
+                        data: invalidData
+                    }
+                )
+            ).toBe(true);
+            await this.#evaluateError(messagesSent, "Checksum");
 
             // Different file ID: Take a data message from the other file (no exception)
-            await bridge.receive(msgsOtherFile[msgsOtherFile.length - 1]);
+            expect(await bridge.receive(msgsOtherFile[msgsOtherFile.length - 1])).toBe(true);
 
             // Invalid chunk index: Repeat first chunk (must issue an error message)
-            await bridge.receive(this.#generateInvalidChunk(msg));
-            await this.#evaluateError(messagesSent[messagesSent.length - 1], "Invalid chunk");
+            messagesSent = [];
+            expect(await bridge.receive(this.#generateInvalidChunk(msg))).toBe(true);
+            await this.#evaluateError(messagesSent, "Invalid chunk");
 
             failureTestsDone = true;
         }
@@ -241,10 +257,7 @@ class TestProtocol {
     /**
 	 * Helper to check error messages
 	 */
-    async #evaluateError(midiMessage, token) {
-		expect(midiMessage.manufacturerId).toEqual(JMB_MANUFACTURER_ID);
-        expect(midiMessage.data.slice(0, 1), JMB_ERROR_MESSAGE);
-        
+    async #evaluateError(midiMessages, token) {        
         const bridge = new JsMidiBridge(); 
 
 		let called = false;
@@ -254,7 +267,9 @@ class TestProtocol {
 			called = true					
 		}
         
-        await bridge.receive(midiMessage);
+        for (const msg of midiMessages) {
+            expect(await bridge.receive(msg)).toBe(true);
+        }
         
         expect(called).toBe(true);
     }
@@ -275,7 +290,7 @@ class TestProtocol {
 			called = true					
 		}
 
-        await bridge.receive(midiMessage)        
+        expect(await bridge.receive(midiMessage)).toBe(true);
         
         expect(called).toBe(true);
     }
@@ -312,11 +327,10 @@ class TestProtocol {
 		messagesSent = [];
         returnNull = true;
 
-        await bridge.receive(msgRequest);
+        expect(await bridge.receive(msgRequest)).toBe(true);
         
-        const lastMessage = messagesSent[messagesSent.length - 1];        
-        await this.#evaluateError(lastMessage, "foo");
-        await this.#evaluateError(lastMessage, "not found");
+        await this.#evaluateError(messagesSent, "foo");
+        await this.#evaluateError(messagesSent, "not found");
     }
     
     async testEmptyFile() {
@@ -340,12 +354,12 @@ class TestProtocol {
         await bridge.request("foo", 20);
         const msgRequest = messagesSent[0];
 
-        await bridge.receive(msgRequest);
-                
-		const lastMessage = messagesSent[messagesSent.length - 1];
+        messagesSent = [];        
         
-        await this.#evaluateError(lastMessage, "foo");
-        await this.#evaluateError(lastMessage, "empty");
+        expect(await bridge.receive(msgRequest)).toBe(true);
+        
+        await this.#evaluateError(messagesSent, "foo");
+        await this.#evaluateError(messagesSent, "empty");
     }
 
 

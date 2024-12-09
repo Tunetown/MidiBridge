@@ -23,7 +23,7 @@
 /**
  * Bridge version
  */
-const JMB_VERSION = "0.3.0";
+const JMB_VERSION = "0.4.0";
 
 /**
  * Manufacturer ID of JsMidiBridge
@@ -49,6 +49,7 @@ const JMB_REQUEST_MESSAGE = [0x01];
  *     *PMB_START_MESSAGE,
  *     <CRC-16, 3 half-bytes (only first 16 bits used, calculated over the rest of the message)>,
  *     <Transmission id, 2 half-bytes>,
+ *     <Transmission type, 1 half-byte>,
  *     <Amount of chunks to be expected, 4 half-bytes>
  *     <Path name as utf-8 bytes with no null termination>
  * ]
@@ -77,14 +78,13 @@ const JMB_DATA_MESSAGE = [0x03];
  */
 const JMB_ACK_MESSAGE = [0x04];
 
-/**
- * Command prefix for error messages
- * Syntax: [
- *     *PMB_ERROR_MESSAGE,
- *     <Error message as utf-8 bytes with no null termination>
- * ]
- */
-const JMB_ERROR_MESSAGE = [0x7f];
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Transmission types
+const JMB_TRANSMISSION_TYPE_FILE = [0x00];
+const JMB_TRANSMISSION_TYPE_ERROR = [0x01];
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,6 +114,12 @@ const JMB_CHECKSUM_LENGTH_FULLBYTES = 2;
 const JMB_CHECKSUM_LENGTH_HALFBYTES = 3;
 
 
+/**
+ * Chunk size for sending errors. Keep this small to be compatible to all clients.
+ */
+const JMB_ERROR_CHUNK_SIZE = 100;
+
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -123,13 +129,8 @@ const JMB_CHECKSUM_LENGTH_HALFBYTES = 3;
 class JsMidiBridge {
 
     #nextId = 1;                         // Next file ID
+	#transmissions = null;               // Transmissions map (key is the transmission ID)
 
-	#receiveTransmissionId = null;       // Internal file ID currently received.
-    #receiveBuffer = "";                 // Write buffer
-    #receiveFilePath = "";               // File path for receiving
-    #receiveAmountChunks = -1;           // Amount of chunks to be received
-    #receiveLastChunk = -1;              // Counts received chunks
-    
     throwExceptionsOnReceive = false;    // When receiving messages, throw exceptions instead of sending an error message (for testing)
 
     /**
@@ -151,25 +152,18 @@ class JsMidiBridge {
      * Called when receiving starts. Data:
      * {
      *     path: 
-     *     fileId:
+     *     transmissionId:
+     *     transmissionType:
      *     numChunks:
      * }
      */
     onReceiveStart = async function(data) {};
     
     /**
-     * Called when a client sent an ack message. Data:
-     * {
-     *     fileId:
-     * }
-     */
-    onReceiveAck = async function(data) {};
-
-    /**
      * Called on every sent chunk. Data:
      * {
      *     path: 
-     *     fileId:
+     *     transmissionId:
      *     chunk:      Index of the current chunk
      *     numChunks:
      * }
@@ -180,55 +174,97 @@ class JsMidiBridge {
      * Called when a file has fully been received.
      * {
      *     path: 
-     *     fileId:
+     *     transmissionId:
      *     data:       The string data
      *     numChunks:
      * }
      */
     onReceiveFinish = async function(data) {};
 
-    
+    /**
+     * Called when a client sent an ack message. Data:
+     * {
+     *     transmissionId:
+     * }
+     */
+    onReceiveAck = async function(data) {};
+
+
+    constructor() {
+        this.#transmissions = new Map();
+    }
+
     // Send Messages ##########################################################################################################
 
     /**
 	 * Opens a file, and send it in chunks (also called internally when a request comes in)
 	 */
-    async send(path, chunkSize) {
+    async sendFile(path, chunkSize) {
         if (!path) {
 			throw new Error("No path");
 		}
+       
+        // Check if file exists and see how many chunks we will need
+        let data = await this.getFile(path);
+        if (data === null) {
+            throw new Error(path + " not found or empty");
+        }
 
+        await this.#send(
+            path, 
+            data, 
+            chunkSize, 
+            JMB_TRANSMISSION_TYPE_FILE
+        );
+    }
+
+    /**
+	 * Directly send a string in chunks.
+	 */
+    async sendString(message, chunkSize) {
+        if (!message || message.length == 0) {
+			throw new Error("No message");
+		}
+
+        await this.#send(
+            "", 
+            message, 
+            chunkSize, 
+            JMB_TRANSMISSION_TYPE_FILE
+        );
+    }
+
+    /**
+     * Implements sending stuff.
+     */
+    async #send(path, content, chunkSize, transmissionType) {        
         if (chunkSize < 1) {
 			throw new Error("Invalid chunk size: " + chunkSize);
 		}
 
         // Generate new file ID (internally used)
-        const fileIdBytes = this.generateFileId();     
+        const transmissionIdBytes = this.generateTransmissionId();     
 
-        // Check if file exists and see how many chunks we will need
-        let data = await this.getFile(path);
-        if (data === null) {
-            throw new Error(path + " not found or empty");
-        }        
-        const amountChunks = Math.ceil(data.length / chunkSize);
+        const amountChunks = Math.ceil(content.length / chunkSize);
 
         // Send start message
         await this.#sendStartMessage(
-            path, 
-            fileIdBytes,
+            path,
+            transmissionType,
+            transmissionIdBytes,
             amountChunks
         );
 
         // Transfer in chunks
         let chunkIndex = 0;
         while(true) {
-            const chunk = data.substring(0, chunkSize);
-            data = data.substring(chunkSize);
+            const chunk = content.substring(0, chunkSize);
+            content = content.substring(chunkSize);
             if (!chunk) {
 				break;
 			}
 
-            await this.#sendChunk(fileIdBytes, chunk, chunkIndex);
+            await this.#sendChunk(transmissionIdBytes, chunk, chunkIndex);
             ++chunkIndex;
         }
     }
@@ -258,9 +294,9 @@ class JsMidiBridge {
     /** 
 	 * Send the "Start of transmission" message
 	 */ 
-    async #sendStartMessage(path, fileIdBytes, amountChunks) {     
-        const amountChunksBytes = Array.from(this.number2bytes(amountChunks, JMB_NUMBER_SIZE_FULLBYTES));   
-        const payload = Array.from(fileIdBytes).concat(amountChunksBytes, Array.from(this.string2bytes(path)));
+    async #sendStartMessage(path, transmissionType, transmissionIdBytes, amountChunks) {     
+        const amountChunksArray = Array.from(this.number2bytes(amountChunks, JMB_NUMBER_SIZE_FULLBYTES));   
+        const payload = Array.from(transmissionIdBytes).concat(Array.from(transmissionType), amountChunksArray, Array.from(this.string2bytes(path)));
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
         await this.#sendSysex(
@@ -273,11 +309,11 @@ class JsMidiBridge {
     /**
 	 * Sends one chunk of data
 	 */ 
-    async #sendChunk(fileIdBytes, chunk, chunkIndex) {
+    async #sendChunk(transmissionIdBytes, chunk, chunkIndex) {
         const dataBytes = Array.from(this.string2bytes(chunk));
         const chunkIndexBytes = Array.from(this.number2bytes(chunkIndex, JMB_NUMBER_SIZE_FULLBYTES));
         
-        const payload = Array.from(fileIdBytes).concat(chunkIndexBytes, dataBytes);
+        const payload = Array.from(transmissionIdBytes).concat(chunkIndexBytes, dataBytes);
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
         await this.#sendSysex(
@@ -287,9 +323,9 @@ class JsMidiBridge {
 	}
 
     /** 
-	 * Generate a file ID (4 bytes)
+	 * Generate a transmission ID (4 bytes)
 	 */ 
-    generateFileId() {
+    generateTransmissionId() {
         return this.number2bytes(++this.#nextId, JMB_TRANSMISSION_ID_LENGTH_FULLBYTES);
     }
     
@@ -304,12 +340,12 @@ class JsMidiBridge {
     async receive(midiMessage) {
         // Check if the message has the necessary attributes
         if (!midiMessage || !midiMessage.hasOwnProperty("manufacturerId") || !midiMessage.hasOwnProperty("data")) {
-			return;
+			return false;
 		}
         
         // Is the message for us?
         if (JSON.stringify(midiMessage.manufacturerId) != JSON.stringify(JMB_MANUFACTURER_ID)) {
-			return;
+			return false;
 		}
         
         // This determines what the sender of the message wants to do
@@ -337,19 +373,11 @@ class JsMidiBridge {
             if (commandId == JSON.stringify(JMB_REQUEST_MESSAGE)) {
                 // Send file
                 await this.#receiveRequest(payload);
-                return;
-            }
-            
-            if (commandId == JSON.stringify(JMB_ERROR_MESSAGE)) {
-                // Handle incoming error messages if an error handler is given
-                const message = this.bytes2string(payload);
-
-                await this.onError(message);
-                return;
-            }
+                return true;
+            }            
 
             // All other messages have a file ID coming next, so we split that off the payload
-            const fileIdBytes = payload.slice(
+            const transmissionIdBytes = payload.slice(
 				0, 
 				JMB_TRANSMISSION_ID_LENGTH_HALFBYTES
 			);
@@ -360,30 +388,30 @@ class JsMidiBridge {
 			
             // Receive: Start of transmission
             if (commandId == JSON.stringify(JMB_START_MESSAGE)) {				
-				await this.#receiveStart(fileIdBytes, payload);
+				await this.#receiveStart(transmissionIdBytes, payload);
             }
 
             // Receive: Data
             else if (commandId == JSON.stringify(JMB_DATA_MESSAGE)) {  
-                if (this.#compareArrays(fileIdBytes, this.#receiveTransmissionId)) {					
-                    await this.#receiveData(payload);
-                }
+                await this.#receiveData(transmissionIdBytes, payload);
             }
 
             // Ack message
             else if (commandId == JSON.stringify(JMB_ACK_MESSAGE)) {                
                 await this.onReceiveAck({
-					fileId: fileIdBytes
+					transmissionId: transmissionIdBytes
 				});
 			}               
 
         } catch(ex) {
-            await this.#sendErrorMessage(ex.message);
-
 			if (this.throwExceptionsOnReceive) {
 				throw ex;
 			}
+
+            await this.error(ex.message);
 		}
+
+        return true;
 	}
 	
     /**
@@ -393,37 +421,43 @@ class JsMidiBridge {
         const chunkSize = this.bytes2number(payload.slice(0, JMB_NUMBER_SIZE_HALFBYTES));
         const path = this.bytes2string(payload.slice(JMB_NUMBER_SIZE_HALFBYTES));
 
-        await this.send(path, chunkSize);
+        await this.sendFile(path, chunkSize);
     }
 
     /**
 	 * Start receiving file data
 	 */
-    async #receiveStart(fileIdBytes, payload) {
-        // Reset state
-        this.#receiveLastChunk = -1;
-        this.#receiveTransmissionId = fileIdBytes;
-        this.#receiveBuffer = "";
-        
-        // Amount of chunks overall
-        this.#receiveAmountChunks = this.bytes2number(payload.slice(0, JMB_NUMBER_SIZE_HALFBYTES));
+    async #receiveStart(transmissionIdBytes, payload) {
+        // Create a new transmission in the list
+        const transmission = {
+            lastChunk: -1,
+            id: transmissionIdBytes,
+            type: payload.slice(0, JMB_PREFIXES_LENGTH_HALFBYTES),
+            amountChunks: this.bytes2number(payload.slice(JMB_PREFIXES_LENGTH_HALFBYTES, JMB_NUMBER_SIZE_HALFBYTES + JMB_PREFIXES_LENGTH_HALFBYTES)),
+            path:this.bytes2string(payload.slice(JMB_NUMBER_SIZE_HALFBYTES + JMB_PREFIXES_LENGTH_HALFBYTES)),
+            buffer: ""
+        };
 
-        // Path to write to
-        this.#receiveFilePath = this.bytes2string(payload.slice(JMB_NUMBER_SIZE_HALFBYTES));
-        
-        // Signal start of transmission
-        
+        this.#transmissions.set(JSON.stringify(transmissionIdBytes), transmission);
+                
+        // Signal start of transmission        
         await this.onReceiveStart({
-			path: this.#receiveFilePath,
-			fileId: fileIdBytes,
-			numChunks: this.#receiveAmountChunks
+			path: transmission.path,
+			transmissionId: transmissionIdBytes,
+            transmissionType: transmission.type,
+			numChunks: transmission.amountChunks
 		});
 	}      
 
     /**
 	 * Receive file data
 	 */ 
-    async #receiveData(payload) {   
+    async #receiveData(transmissionIdBytes, payload) {   
+        const transmission = this.#transmissions.get(JSON.stringify(transmissionIdBytes));
+        if (!transmission) {
+            throw new Error("Transmission not found");            
+        }
+
         // Index of the chunk
         const index = this.bytes2number(payload.slice(0, JMB_NUMBER_SIZE_HALFBYTES));
 
@@ -431,43 +465,62 @@ class JsMidiBridge {
         const strData = this.bytes2string(payload.slice(JMB_NUMBER_SIZE_HALFBYTES));
     
         // Only accept if the chunk index is the one expected
-        if (index != this.#receiveLastChunk + 1) {			
-            throw new Error("Invalid chunk " + index + ", expected " + (this.#receiveLastChunk + 1));
+        if (index != transmission.lastChunk + 1) {			
+            throw new Error("Invalid chunk " + index + ", expected " + (transmission.lastChunk + 1));
         }
         
-        this.#receiveLastChunk = index;
+        transmission.lastChunk = index;
 
         // Append to file
-        this.#receiveBuffer += strData;
+        transmission.buffer += strData;
             
         await this.onReceiveProgress({
-			path: this.#receiveFilePath,
-			fileId: this.#receiveTransmissionId,
+			path: transmission.path,
+			transmissionId: transmission.id,
 			chunk: index,
-			numChunks: this.#receiveAmountChunks
+			numChunks: transmission.amountChunks
 		});  
         
         // If this has been the last chunk, close the file handle and send ack message
-        if (index == this.#receiveAmountChunks - 1) {
-            await this.#receiveFinish();
+        if (index == transmission.amountChunks - 1) {
+            await this.#receiveFinish(transmission);
         }
     }
 
     /**
 	 * Finish receiving and send acknowledge message
 	 */
-    async #receiveFinish() {
-        await this.onReceiveFinish({
-			fileId: this.#receiveTransmissionId,
-			path: this.#receiveFilePath,
-			data: this.#receiveBuffer,
-			numChunks: this.#receiveAmountChunks	
-		});
+    async #receiveFinish(transmission) {
+        const type = JSON.stringify(Array.from(transmission.type));
 
-        await this.#sendAckMessage(this.#receiveTransmissionId);
+        switch(type) {
+            case JSON.stringify(JMB_TRANSMISSION_TYPE_FILE): {
+                await this.onReceiveFinish({
+                    transmissionId: transmission.id,
+                    path: transmission.path,
+                    data: transmission.buffer,
+                    numChunks: transmission.amountChunks
+                });
         
-        this.#receiveTransmissionId = null;      
-        this.#receiveBuffer = "";
+                await this.#sendAckMessage(transmission.id);    
+
+                break;
+            }
+            
+            case JSON.stringify(JMB_TRANSMISSION_TYPE_ERROR): {
+                await this.onError(
+                    transmission.buffer
+                );
+
+                break;
+            }
+
+            default: {
+                throw new Error("Unknown transmission type: " + type);
+            }
+        }
+        
+        this.#transmissions.delete(transmission.id);
     }
 
 
@@ -487,15 +540,13 @@ class JsMidiBridge {
     /**
 	 * Sends an error message
 	 */
-    async #sendErrorMessage(msg) {
-		const payloadBytes = this.string2bytes(msg);
-        const payload = Array.from(payloadBytes);
-        const checksum = Array.from(this.getChecksum(payloadBytes));
-
-		await this.#sendSysex(
-			JMB_MANUFACTURER_ID,
-            JMB_ERROR_MESSAGE.concat(checksum, payload)
-		); 
+    async error(message) {
+		await this.#send(
+            "",
+            message,
+            JMB_ERROR_CHUNK_SIZE,
+            JMB_TRANSMISSION_TYPE_ERROR
+        );
 	}
 
     /**
