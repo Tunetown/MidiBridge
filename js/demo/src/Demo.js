@@ -19,15 +19,16 @@ class Demo {
 
     #midi = null        // MIDIAccess object
     #ui = null;         // User interface
-    //#callbacks = null;  // Like the bridge internally, we use a callback based approach for everything
-    routing = null;
-    #bridge = null;
+    routing = null;     // Routing
+    #bridge = null;     // Bridge instance
+
+    #loadStartTime = 0; // Used to calculate the average loading time per byte for estimations
+
 
     constructor(ui) {        
         this.#ui = ui;        
 
         this.#ui.init(this);
-        //this.#callbacks = new Callbacks();
     }
 
     /**
@@ -51,14 +52,14 @@ class Demo {
             await this.#midi.scan(function(data) {
                 if (that.#bridge) return;   // Already connected
 
-                that.#initConnection(data.bridge);
+                that.#initConnection(data.bridge, data.output.name);
 
                 that.routing.run();
             });
 
             
         } catch (e) {
-            console.error(e);
+            this.#ui.console.error(e);
         }        
     }
 
@@ -66,37 +67,47 @@ class Demo {
      * Loads and shows the given path. Called by routing.
      */
     open(path) {
-        console.log("Open " + path)
-
         this.#ui.showPath(path);
-        this.#ui.showContent("Loading...");
+        this.#ui.showContent("Loading " + path + "...");
 
-        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);
+        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);        
     }
 
     /**
-     * Set up callbacks
+     * Set up the passed bridge. 
      */
-    #initConnection(bridge) {
+    #initConnection(bridge, connectionName) {
         const that = this;
 
+        this.#ui.console.log("Connected to " + connectionName);
+
+        // Receive start
         bridge.onReceiveStart = async function(data) {
+            that.#loadStartTime = Date.now();
+
             that.#ui.showPath(data.path);
             that.#ui.progress(0, "Loading " + data.path);
         };
 
+        // Progress
         bridge.onReceiveProgress = async function(data) {
             that.#ui.progress((data.chunk + 1) / data.numChunks, "Loading chunk " + data.chunk + " of " + data.numChunks);
         };
 
+        // Receive finish
         bridge.onReceiveFinish = async function(data) {
+            const timeMillis = Date.now() - that.#loadStartTime;
+            that.#ui.setLoadTime(timeMillis / data.data.length);
+
             that.#ui.showContent(data.data);
             that.#ui.progress(1);
+
+            that.#ui.console.log("Loaded " + data.path + " (took " + Tools.formatTime(timeMillis) + ")");
         };
 
+        // Error handling for MIDI errors coming from the bridge
         bridge.onError = async function(message) {
-            console.error(message);
-            that.#ui.error(message);
+            that.#ui.console.error(message);
         }
 
         this.#bridge = bridge;

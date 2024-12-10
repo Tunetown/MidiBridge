@@ -18,12 +18,16 @@
 class DemoUserInterface {
 
     #containerElement = null;       // DOM element for the contents
-    #pathInput = null;
-    #app = null;
-    #editorElement = null;
-    #editor = null;
-    #block = null;
-    #progressBar = null;
+    #pathInput = null;              // Input element for the path
+    #app = null;                    // app reference
+
+    #editor = null;                 // Instance of DemoEditor
+    #listing = null;                // Instance of DemoFolderListing
+    
+    #block = null;                  // Block element (background for progress bar)
+    #progressBar = null;            // Progress bar inner element (the one to resize)
+
+    console = null;                 // Instance of DemoConsole
 
     constructor(containerElement) {
         this.#containerElement = containerElement;
@@ -39,6 +43,10 @@ class DemoUserInterface {
     build() {
         const that = this;
 
+        let editorElement = null;
+        let folderListingElement = null;
+        let consoleElement = null;
+
         this.#containerElement.append(
             // Path input
             $('<div class="path"/>').append(
@@ -50,40 +58,33 @@ class DemoUserInterface {
                 })
             ),
 
-            // Editor
-            this.#editorElement = $('<div class="editor"/>'),
+            // Content
+            $('<div class="contentArea"/>').append(
+                folderListingElement = $('<div class="folderListing"/>'),
 
-            this.#block = $('<div class="block"/>').append(
-                    $('<div class="progressBarOuterContainer" />').append(
-                    $('<span class="progressBarContainer" />').append(
-                        $('<div class="progressBarBack" />').append(
-                            this.#progressBar = $('<div class="progressBar" />')
+                // Editor
+                editorElement = $('<div class="editor"/>'),
+
+                this.#block = $('<div class="block"/>').append(
+                        $('<div class="progressBarOuterContainer" />').append(
+                        $('<span class="progressBarContainer" />').append(
+                            $('<div class="progressBarBack" />').append(
+                                this.#progressBar = $('<div class="progressBar" />')
+                            )
                         )
                     )
-                )
-            ).hide()
+                ).hide()
+            ),
+
+            // Error panel
+            consoleElement = $('<div class="console"/>')
         )
 
-        this.#setupEditor();
+        this.#editor = new DemoEditor(editorElement);
+        this.#listing = new DemoFolderListing(folderListingElement);
+        this.console = new DemoConsole(consoleElement);
     }
-
-    #setupEditor() {
-        // Create the editor instance
-		this.#editor = CodeMirror(this.#editorElement[0], {
-			mode: "python"
-		});
-
-        const that = this;
-
-        this.#editor.on('change', async function(/*obj*/) {
-			await that.#setDirty();			
-		});
-    }
-
-    async #setDirty() {
-        // TODO
-    }
-
+    
     /**
      * Shows the passed path
      */
@@ -95,14 +96,12 @@ class DemoUserInterface {
      * Show the passed content
      */
     showContent(content) {
-        this.#editor.setValue(content);
-    }
-
-    /**
-     * Show an error
-     */
-    error(message) {
-        //this.#editor.setValue(message);
+        if (this.#listing.show(this.#pathInput.val(), content)) {
+            this.#editor.hide();
+        } else {
+            this.#editor.show();
+            this.#editor.setContent(content);
+        }
     }
 
     /**
@@ -117,10 +116,17 @@ class DemoUserInterface {
             return;
         }
 
-        this.#block.show();
-
         const perc = (percentage * 100).toFixed(2);  
 		
 		this.#progressBar.css('width', perc + '%');		
+
+        this.#block.show();
+    }
+
+    /**
+     * Call this with statistics to estimate load times.
+     */
+    setLoadTime(millisPerByte) {
+        this.#listing.setLoadTime(millisPerByte);
     }
 }

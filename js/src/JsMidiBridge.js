@@ -408,6 +408,7 @@ class JsMidiBridge {
 				throw ex;
 			}
 
+            console.error(ex);
             await this.error(ex.message);
 		}
 

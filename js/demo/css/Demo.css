@@ -1,6 +1,9 @@
 html {
 	margin: 0;
     padding: 0;	
+
+	font-size: 1.5vh;
+	font-family: Avenir, Calibri, Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -8,10 +11,9 @@ body {
     padding: 0;	
 
     background-color: #aaa;
-
-    font-family: Avenir, Calibri, Helvetica, Arial, sans-serif;
 }
 
+/***************************************************/
 
 #content {
     display: grid;
@@ -19,7 +21,7 @@ body {
     width: 100vw;
     height: 100vh;
 
-    grid-template-rows: min-content auto;
+    grid-template-rows: min-content auto 20vh;
     grid-template-columns: auto;
 
     position: relative;	
@@ -27,24 +29,104 @@ body {
     overflow: hidden;
 }
 
+/***************************************************/
+
 .path {
     grid-row: 1;
     grid-column: 1;
 
-    background-color: red;
+    background-color: #c0ff61;
 
     padding: 5px;
 }
 
 .path > input {
     width: 90%;
+
+	font-size: 1rem;
 }
 
-.editor {
-    grid-row: 2;
+.contentArea {
+	grid-row: 2;
     grid-column: 1;
 
-    background-color: yellow;
+    position: relative;
+}
+
+.console {
+	border-top: 2px solid #aaa;
+	grid-row: 3;
+    grid-column: 1;
+
+	background-color: white;
+
+	padding: 10px;
+	font-family: 'Courier New', Courier, monospace;
+
+	overflow: auto;
+}
+
+.console > * {
+	display: grid;
+
+	grid-template-rows: auto;
+	grid-template-columns: min-content auto;
+}
+
+.console > * > *:first-child {
+	color: rgb(183, 183, 183);
+	white-space: pre;
+	margin-right: 10px;
+}
+
+.console > * > *:last-child {
+	color: black;
+	white-space: pre;
+}
+
+.console > *.error > *:last-child {
+	color: rgb(196, 0, 0);
+	font-weight: bold;
+}
+
+/***************************************************/
+
+.folderListing {
+	position: absolute;
+
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+
+	background-color: white;
+	z-index: 10;
+
+	padding: 10px;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+.folderListing > * {
+	display: block;
+	white-space: pre;
+	text-decoration: none;
+}
+
+.folderListing > a:hover {
+	background-color: #eee;
+}
+
+/***************************************************/
+
+.editor {
+	position: absolute;
+
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+
+	z-index: 20;
 
     container-type: size;
 }
@@ -54,6 +136,7 @@ body {
 	height: 100cqh;
 }
  
+/***************************************************/
 
 .block {
     position: absolute;
@@ -63,6 +146,7 @@ body {
 	bottom: 0;
 	background: #aaa;
     opacity: 0.5;
+	z-index: 100;
 }
 
 .progressBarOuterContainer {

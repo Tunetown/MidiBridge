@@ -30,7 +30,8 @@ const BRIDGE_CHUNK_SIZE = 100;
 const TIMEOUT_INTERVAL_MILLIS = 10000;
 
 /**
- * Use this class to initialize the bridge. You can either use scan() or directly connect() to a pair of input/output ports.
+ * Use this class to initialize the bridge and connect it to Web MIDI API ports. 
+ * You can either use scan() or directly connect() to a pair of input/output ports.
  */
 class MidiBridgeHandler {
 
@@ -105,7 +106,7 @@ class MidiBridgeHandler {
     /**
      * Connect to a port pair. 
      */
-    async connect(input, output, onFinish) {
+    async connect(input, output) {
         const that = this;
 
         const path = "/notexistingfile";
