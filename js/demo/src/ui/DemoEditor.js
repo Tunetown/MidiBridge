@@ -19,9 +19,11 @@ class DemoEditor {
 
     #editorElement = null;
     #editor = null;
+    #ui = null;
     
-    constructor(editorElement) {
+    constructor(editorElement, ui) {
         this.#editorElement = editorElement;
+        this.#ui = ui;
 
         this.#setupEditor();
     }
@@ -37,13 +39,13 @@ class DemoEditor {
 
         const that = this;
 
-        this.#editor.on('change', async function(/*obj*/) {
-			await that.#setDirty();			
+        this.#editor.on('change', function(/*obj*/) {
+			that.#setDirty();			
 		});
     }
 
-    async #setDirty() {
-        // TODO
+    #setDirty() {
+        this.#ui.setDirty();
     }
 
     show() {
@@ -52,6 +54,10 @@ class DemoEditor {
 
     hide() {
         $(this.#editorElement).hide();
+    }
+
+    getContent() {
+       return this.#editor.getValue();
     }
 
     /**

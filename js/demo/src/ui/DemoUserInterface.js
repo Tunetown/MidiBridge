@@ -27,6 +27,8 @@ class DemoUserInterface {
     #block = null;                  // Block element (background for progress bar)
     #progressBar = null;            // Progress bar inner element (the one to resize)
 
+    #saveButton = null;
+
     console = null;                 // Instance of DemoConsole
 
     constructor(containerElement) {
@@ -49,13 +51,21 @@ class DemoUserInterface {
 
         this.#containerElement.append(
             // Path input
-            $('<div class="path"/>').append(
-                this.#pathInput = $('<input name="pathInput" type="text" />')
-                .keypress(function (e) {
-                    if (e.which == 13) {
-                        that.#app.routing.callPath(this.value);
-                    }
-                })
+            $('<div class="header"/>').append(
+                $('<div class="pathInput" />').append(
+                    this.#pathInput = $('<input name="pathInput" type="text" />')
+                    .keypress(function (e) {
+                        if (e.which == 13) {
+                            that.#app.routing.callPath(this.value);
+                        }
+                    })
+                ),
+                $('<div class="buttons" />').append(
+                    this.#saveButton = $('<div class="fa fa-save" />')
+                    .on("click", function(event) {
+                        that.#save();
+                    })
+                )
             ),
 
             // Content
@@ -80,11 +90,19 @@ class DemoUserInterface {
             consoleElement = $('<div class="console"/>')
         )
 
-        this.#editor = new DemoEditor(editorElement);
+        this.#editor = new DemoEditor(editorElement, this);
         this.#listing = new DemoFolderListing(folderListingElement);
         this.console = new DemoConsole(consoleElement);
     }
     
+    /**
+     * Trigger saving
+     */
+    async #save() {
+        const content = this.#editor.getContent();
+        await this.#app.save(this.#pathInput.val(), content);
+    }
+
     /**
      * Shows the passed path
      */
@@ -102,6 +120,8 @@ class DemoUserInterface {
             this.#editor.show();
             this.#editor.setContent(content);
         }
+
+        this.resetDirtyState();
     }
 
     /**
@@ -128,5 +148,16 @@ class DemoUserInterface {
      */
     setLoadTime(millisPerByte) {
         this.#listing.setLoadTime(millisPerByte);
+    }
+
+    /**
+     * Show the dirty marker
+     */
+    setDirty() {
+        this.#saveButton.show();
+    }
+
+    resetDirtyState() {
+        this.#saveButton.hide();
     }
 }

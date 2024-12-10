@@ -31,20 +31,37 @@ body {
 
 /***************************************************/
 
-.path {
+.header {
     grid-row: 1;
     grid-column: 1;
 
     background-color: #c0ff61;
 
     padding: 5px;
+	display: grid;
+
+	grid-template-columns: auto min-content;
+	grid-template-rows: auto;	
 }
 
-.path > input {
-    width: 90%;
+.header > .pathInput {
+	padding-right: 15px;
+}
 
+.header > .pathInput > input {
+    width: 100%;
 	font-size: 1rem;
 }
+
+.header > .buttons {
+	font-size: 1.3em;
+}
+
+.header > .buttons > * {
+	cursor: pointer;
+}
+
+/***************************************************/
 
 .contentArea {
 	grid-row: 2;

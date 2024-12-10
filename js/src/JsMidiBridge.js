@@ -221,13 +221,13 @@ class JsMidiBridge {
     /**
 	 * Directly send a string in chunks.
 	 */
-    async sendString(message, chunkSize) {
+    async sendString(path, message, chunkSize) {
         if (!message || message.length == 0) {
 			throw new Error("No message");
 		}
 
         await this.#send(
-            "", 
+            path, 
             message, 
             chunkSize, 
             JMB_TRANSMISSION_TYPE_FILE
@@ -299,6 +299,8 @@ class JsMidiBridge {
         const payload = Array.from(transmissionIdBytes).concat(Array.from(transmissionType), amountChunksArray, Array.from(this.string2bytes(path)));
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
+        console.log("Send start message")
+
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
             JMB_START_MESSAGE.concat(checksum, payload)
@@ -316,6 +318,8 @@ class JsMidiBridge {
         const payload = Array.from(transmissionIdBytes).concat(chunkIndexBytes, dataBytes);
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
+        console.log("Send chunk " + chunkIndex)
+
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
             JMB_DATA_MESSAGE.concat(checksum, payload)

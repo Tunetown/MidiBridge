@@ -70,7 +70,14 @@ class Demo {
         this.#ui.showPath(path);
         this.#ui.showContent("Loading " + path + "...");
 
-        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);        
+        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);
+    }
+
+    /**
+     * Called by the UI to save the passed content.
+     */
+    async save(path, content) {
+        await this.#bridge.sendString(path, content, 60);
     }
 
     /**
@@ -101,9 +108,15 @@ class Demo {
 
             that.#ui.showContent(data.data);
             that.#ui.progress(1);
-
+            
             that.#ui.console.log("Loaded " + data.path + " (took " + Tools.formatTime(timeMillis) + ")");
         };
+
+        // Acknowledged successful transfer to the client
+        bridge.onReceiveAck = async function(data) {
+            that.#ui.console.log("Successfully saved file");
+            that.#ui.resetDirtyState();
+        }
 
         // Error handling for MIDI errors coming from the bridge
         bridge.onError = async function(message) {
