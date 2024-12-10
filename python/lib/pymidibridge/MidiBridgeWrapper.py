@@ -5,6 +5,7 @@
 # communicate (as long as your application calls receive() regularily of course).
 
 import json
+import traceback
 from os import stat, rename, listdir
 from adafruit_midi.system_exclusive import SystemExclusive
 from .pymidibridge import PyMidiBridge
@@ -77,6 +78,10 @@ class MidiBridgeWrapper:
     # Called when the bridge received notice about a finished transfer on the other side
     def transfer_finished(self, file_id_bytes):
         print("Transfer finished: " + repr(file_id_bytes))
+
+    # Returns the trace of an exception
+    def get_trace(self, exception):        
+        return repr(traceback.format_exception(None, exception, exception.__traceback__))
 
 
 #######################################################################################################

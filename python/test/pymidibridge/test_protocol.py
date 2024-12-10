@@ -69,16 +69,18 @@ class TestProtocol(unittest.TestCase):
 
         bridge = PyMidiBridge(
             midi = midi,
-            storage = storage
+            storage = storage,
+            event_handler = MockEventHandler()
         )
 
         # Get a request message for the path
         bridge.request(path, chunk_size)
         msg_request = midi.messages_sent[0]
 
-        # Get some messages related to another file
+        # Get some messages related to another file        
         midi.messages_sent = []
         bridge.send_file("bar", 20)
+        self._acknowledge(bridge, midi, all = True)
         msgs_other_file = [m for m in midi.messages_sent]
         self.assertGreaterEqual(len(msgs_other_file), 2)
 
@@ -87,8 +89,11 @@ class TestProtocol(unittest.TestCase):
         storage.created_handles = []
 
         # Let the bridge receive a request message, to trigger it sending a file
-        self.assertEqual(bridge.receive(msg_request), True)
-
+        print("----------")
+        self.assertEqual(bridge.receive(msg_request), True)        
+        #print(midi.messages_sent)
+        self._acknowledge(bridge, midi, all = True)
+        
         self.assertEqual(len(storage.created_handles), 1)
         self.assertEqual(storage.created_handles[0].path, path)
         self.assertEqual(storage.created_handles[0].mode, "r")
@@ -101,18 +106,16 @@ class TestProtocol(unittest.TestCase):
         
         # Feed back the generated MIDI messages to the bridge, yielding the input data again
         failure_tests_done = False
-        cnt = 0
+        # cnt = 0
         msgs = [m for m in midi.messages_sent]
         for msg in msgs:
-            midi.messages_sent = []
-
             self.assertEqual(bridge.receive(msg), True)
 
-            if cnt == len(msgs) - 1:
-                # Last message: Must have an ack message sent
-                self._evaluate_ack(midi.last_message)
+            # if cnt == len(msgs) - 1:
+            #     # Last message: Must have an ack message sent
+            #     self._evaluate_ack(midi.last_message)
 
-            cnt += 1
+            # cnt += 1
 
             if failure_tests_done:
                 continue
@@ -164,6 +167,39 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(storage.created_handles[1].write_contents, data)
 
 
+    # Send a file inkl. ack message handling
+    def _acknowledge(self, bridge, midi, all = False):
+        if not midi.messages_sent:
+            return
+
+        other_midi = MockMidiSender()
+        other_bridge = PyMidiBridge(
+            midi = other_midi, 
+            storage =  MockStorageProvider()
+        )
+
+        #self.assertEqual(len(midi.messages_sent), 2, "This must be called with two messages (start/first chunk) only!")
+
+        # Data messages
+        cnt = 0
+        while True:
+            old_size = len(other_midi.messages_sent)
+
+            other_bridge.receive(midi.messages_sent[cnt])
+            cnt += 1
+
+            if not all:                
+                break
+
+            if cnt > 1:
+                if old_size == len(other_midi.messages_sent):
+                    break
+
+            if other_midi.messages_sent:
+                last_msg = other_midi.messages_sent[-1]
+                bridge.receive(last_msg)
+
+
     # Generates an invalid chunk for the file_id in the passed message. The chunk 0 is used, because this is invalid after
     def _generate_invalid_chunk(self, midi_message, invalid_index = 999):
         bridge = PyMidiBridge(None, None)
@@ -185,8 +221,10 @@ class TestProtocol(unittest.TestCase):
     def _evaluate_error(self, midi_messages, token):
         events = MockEventHandler()
 
+        midi = MockMidiSender()
+
         bridge = PyMidiBridge(
-            midi = None, 
+            midi = midi, 
             storage = None,
             event_handler = events
         )        
@@ -195,27 +233,28 @@ class TestProtocol(unittest.TestCase):
         
         for msg in midi_messages:
             self.assertEqual(bridge.receive(msg), True)
+            self._acknowledge(bridge, midi)
         
         self.assertIsNotNone(events.last_error, "Exception not thrown: " + token)
         self.assertIn(token, events.last_error)
 
 
-    # Helper to check ack messages
-    def _evaluate_ack(self, midi_message):
-        self.assertEqual(midi_message.manufacturer_id, PMB_MANUFACTURER_ID)
-        self.assertEqual(midi_message.data[:1], PMB_ACK_MESSAGE)
+    # # Helper to check ack messages
+    # def _evaluate_ack(self, midi_message):
+    #     self.assertEqual(midi_message.manufacturer_id, PMB_MANUFACTURER_ID)
+    #     self.assertEqual(midi_message.data[:1], PMB_ACK_MESSAGE)
         
-        events = MockEventHandler()
+    #     events = MockEventHandler()
 
-        bridge = PyMidiBridge(
-            midi = None, 
-            storage = None,
-            event_handler = events
-        )        
+    #     bridge = PyMidiBridge(
+    #         midi = None, 
+    #         storage = None,
+    #         event_handler = events
+    #     )        
 
-        events.last_ack = None        
-        self.assertEqual(bridge.receive(midi_message), True)
-        self.assertIsNotNone(events.last_ack)
+    #     events.last_ack = None        
+    #     self.assertEqual(bridge.receive(midi_message), True)
+    #     self.assertIsNotNone(events.last_ack)
         
 
     def test_receive_reboot(self):

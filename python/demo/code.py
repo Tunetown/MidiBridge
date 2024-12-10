@@ -38,7 +38,5 @@ except Exception as e:
     # In case of errors, we want the bridge to be functional so we can fix the errors via MIDI.
     # Here, we get the error message incl. trace, send it out via MIDI as error message, and initiate
     # a receive loop listening to bridge messages until reboot.
-    import traceback
-    message = traceback.format_exception(None, e, e.__traceback__)
-    wrapper.error(message)
+    wrapper.error(wrapper.get_trace(e))
     

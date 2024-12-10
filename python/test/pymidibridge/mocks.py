@@ -1,3 +1,4 @@
+import traceback 
 
 class MockSystemExclusiveMessage:
     def __init__(self, manufacturer_id = bytes([]), data = bytes([])):
@@ -106,3 +107,6 @@ class MockEventHandler:
 
     def transfer_finished(self, path):
         self.last_ack = path
+
+    def get_trace(self, exception):
+        return traceback.format_exception(None, exception, exception.__traceback__)
