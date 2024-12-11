@@ -135,6 +135,11 @@ class JsMidiBridge {
     #receiveTransmissions = null;            // Transmissions map for receiving (key is the transmission ID)
 
     throwExceptionsOnReceive = false;        // When receiving messages, throw exceptions instead of sending an error message (for testing)
+    
+    console = {
+        log: function() {},
+        error: function() {}
+    }
 
     /**
      * Callback on errors received from the other side. message will be a string.
@@ -258,11 +263,13 @@ class JsMidiBridge {
     async #startSendTransmission(transmission) {
         transmission.nextChunk = 0;
 
-        // Send start message
-        await this.#sendStartMessage(transmission);
-
         this.#sendTransmissions.set(JSON.stringify(transmission.id), transmission);
 
+        this.console.log("Start sending", transmission);
+        this.console.log("Number of send transmissions: " + this.#sendTransmissions.size);
+        
+        // Send start message and first chunk
+        await this.#sendStartMessage(transmission);
         await this.#sendNextChunk(transmission);
     }
 
@@ -317,6 +324,8 @@ class JsMidiBridge {
         );
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
+        this.console.log("Start message" + JSON.stringify(transmission));
+        
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
             JMB_START_MESSAGE.concat(checksum, payload)
@@ -337,6 +346,8 @@ class JsMidiBridge {
             dataBytes
         );
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
+        
+        this.console.log("Send data chunk " + chunkIndex + ", " + (checksum.length + payload.length) + " bytes");
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -484,6 +495,9 @@ class JsMidiBridge {
             transmissionType: transmission.type,
 			numChunks: transmission.amountChunks
 		});
+
+        this.console.log("Start receiving " + JSON.stringify(transmission));
+        this.console.log("Number of receive transmissions: " + this.#receiveTransmissions.size);
 	}      
 
     /**
@@ -525,6 +539,8 @@ class JsMidiBridge {
         if (index == transmission.amountChunks - 1) {
             await this.#receiveFinish(transmission);
         }
+        
+        this.console.log("Received chunk " + index);
     }
 
     /**
@@ -546,9 +562,7 @@ class JsMidiBridge {
             }
             
             case JSON.stringify(JMB_TRANSMISSION_TYPE_ERROR): {
-                await this.onError(
-                    transmission.buffer
-                );
+                await this.onError(transmission.buffer);
 
                 break;
             }
@@ -559,6 +573,9 @@ class JsMidiBridge {
         }
         
         this.#receiveTransmissions.delete(JSON.stringify(transmission.id));
+
+        this.console.log("Finished receiving " + JSON.stringify(transmission));
+        this.console.log("Number of receive transmissions: " + this.#receiveTransmissions.size);
     }
 
     /**
@@ -579,6 +596,9 @@ class JsMidiBridge {
         if (transmission.nextChunk == transmission.amountChunks) {
             this.#sendTransmissions.delete(JSON.stringify(transmissionIdBytes));
 
+            this.console.log("Finished sending " + JSON.stringify(transmission));
+            this.console.log("Number of send transmissions: " + this.#sendTransmissions.size);
+            
             await this.onReceiveAck({
             	transmissionId: transmissionIdBytes
             });
@@ -596,6 +616,8 @@ class JsMidiBridge {
             Array.from(this.number2bytes(chunkIndex, JMB_NUMBER_SIZE_FULLBYTES))
         );
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
+        
+        this.console.log("Send ack message" + chunkIndex);
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,

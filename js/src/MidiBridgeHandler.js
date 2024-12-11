@@ -30,6 +30,11 @@ const BRIDGE_CHUNK_SIZE = 100;
 const TIMEOUT_INTERVAL_MILLIS = 10000;
 
 /**
+ * Debug bridge messages on the console
+ */
+const MIDI_BRIDGE_DEBUG = true;
+
+/**
  * Use this class to initialize the bridge and connect it to Web MIDI API ports. 
  * You can either use scan() or directly connect() to a pair of input/output ports.
  */
@@ -115,6 +120,10 @@ class MidiBridgeHandler {
 
         return new Promise(function(resolve, reject) {
             const bridge = new JsMidiBridge();
+
+            if (MIDI_BRIDGE_DEBUG) {
+                bridge.console = that.console;
+            }
 
             bridge.sendSysex = async function(manufacturerId, data) {
                 await that.#sendSysex(

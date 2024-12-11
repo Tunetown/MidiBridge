@@ -115,10 +115,11 @@ class PyMidiBridge:
     # event_handler:    Optional event handler, used to handle incoming errors as well as other stuff. 
     #                   See EventHaldler definition below. 
     #
-    def __init__(self, midi, storage = None, event_handler = None):
+    def __init__(self, midi, storage = None, event_handler = None, debug = False):
         self._midi = midi
         self._storage = storage
         self._event_handler = event_handler
+        self._debug = debug
 
         # Transmission dict of dicts (for receiving stuff). Keys are the transmission IDs.
         self._receive_transmissions = {}
@@ -182,11 +183,14 @@ class PyMidiBridge:
     def _start_send_transmission(self, transmission):
         transmission["nextChunk"] = 0
 
-        # Send start message
-        self._send_start_message(transmission)
-
         self._send_transmissions[transmission["id"]] = transmission
 
+        if self._debug:
+            print("Start sending " + repr(transmission))
+            print("Number of send transmissions: " + repr(len(self._send_transmissions)))
+
+        # Send start message and first chunk
+        self._send_start_message(transmission)
         self._send_next_chunk(transmission)
 
 
@@ -239,6 +243,9 @@ class PyMidiBridge:
         payload = transmission["id"] + transmission["type"] + amount_chunks_bytes + self._string_2_bytes(transmission["path"])
         checksum = self._get_checksum(payload)
         
+        if self._debug:
+            print("Send start message for " + repr(transmission))
+
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
             data = PMB_START_MESSAGE + checksum + payload            
@@ -253,6 +260,9 @@ class PyMidiBridge:
         payload = transmission_id_bytes + chunk_index_bytes + data_bytes
         checksum = self._get_checksum(payload)
         
+        if self._debug:
+            print("Send data chunk " + repr(chunk_index))
+
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
             data = PMB_DATA_MESSAGE + checksum + payload
@@ -369,6 +379,10 @@ class PyMidiBridge:
 
         self._receive_transmissions[transmission_id_bytes] = transmission
 
+        if self._debug:
+            print("Start receiving " + repr(transmission))
+            print("Number of receive transmissions: " + repr(len(self._receive_transmissions)))
+
 
     # Receive file data
     def _receive_data(self, transmission_id_bytes, payload):
@@ -403,6 +417,9 @@ class PyMidiBridge:
         if index == transmission["amountChunks"] - 1:
             self._receive_finish(transmission)
 
+        if self._debug:
+            print("Received chunk " + repr(index))
+
 
     # Finish receiving and send acknowledge message
     def _receive_finish(self, transmission):
@@ -417,6 +434,11 @@ class PyMidiBridge:
 
         # Remove transmission from the receive list
         del self._receive_transmissions[transmission["id"]]
+
+        if self._debug:
+            print("Finished receiving " + repr(transmission))
+            print("Number of receive transmissions: " + repr(len(self._receive_transmissions)))
+
 
 
     # Receive the chunk ack message
@@ -433,6 +455,10 @@ class PyMidiBridge:
         if transmission["nextChunk"] == transmission["amountChunks"]:
             del self._send_transmissions[transmission_id_bytes]
 
+            if self._debug:
+                print("Finish sending " + repr(transmission))
+                print("Number of send transmissions: " + repr(len(self._send_transmissions)))
+
             if self._event_handler:
                 self._event_handler.transfer_finished(transmission_id_bytes)
         else:
@@ -444,6 +470,9 @@ class PyMidiBridge:
         payload = transmission_id_bytes + self._number_2_bytes(chunk_index, _PMB_NUMBER_SIZE_FULLBYTES)
         checksum = self._get_checksum(payload)
         
+        if self._debug:
+            print("Send ack message " + repr(chunk_index))            
+
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
             data = PMB_ACK_MESSAGE + checksum + payload

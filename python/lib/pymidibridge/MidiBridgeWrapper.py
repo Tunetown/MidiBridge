@@ -16,7 +16,7 @@ from.MidiBridgeStorageProvider import MidiBridgeStorageProvider
 # This passes all MIDI through to/from the passed MIDI handler, plus the PyMidiBridge is 
 # listening for commands to read/change the configuration files via SysEx.
 class MidiBridgeWrapper:
-    def __init__(self, midi, temp_file_path, storage_provider = None):
+    def __init__(self, midi, temp_file_path, storage_provider = None, debug = False):
         self._midi = midi
 
         # Storage wrapper to the filesystem
@@ -29,7 +29,8 @@ class MidiBridgeWrapper:
         self._bridge = PyMidiBridge(
             storage = storage_provider,
             midi = self,                         # The bridge calls send_system_exclusive to send its data
-            event_handler = self                 # handle errors and messages here directly 
+            event_handler = self,                # handle errors and messages here directly 
+            debug = debug
         )
 
     # Called to send messages (this is directly forwarded to the MIDI handler)
@@ -89,7 +90,7 @@ class MidiBridgeWrapper:
 
     # Returns the trace of an exception
     def get_trace(self, exception):        
-        return repr(traceback.format_exception(None, exception, exception.__traceback__))
+        return str(traceback.format_exception(None, exception, exception.__traceback__))
 
 
 #######################################################################################################
