@@ -6,11 +6,12 @@
 
 from sys import exit
 from math import ceil
+from random import randint
 
 ####################################################################################################################
  
 # Bridge version
-PMB_VERSION = "0.4.0"
+PMB_VERSION = "0.5.0"
 
 # Manufacturer ID of PyMidiBridge
 PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
@@ -107,7 +108,7 @@ _PMB_ERROR_CHUNK_SIZE = 100
 class PyMidiBridge:
 
     # Next transmission ID
-    _NEXT_ID = 1   
+    _NEXT_ID = None  
 
     # midi_send:        Object to send SystemExclusive messages. See MidiSender.
     # storage:          Object to interact with storage. See StorageProvider.
@@ -182,12 +183,7 @@ class PyMidiBridge:
         transmission["nextChunk"] = 0
 
         # Send start message
-        self._send_start_message(
-            path = transmission["path"], 
-            transmission_id_bytes = transmission["id"],
-            transmission_type = transmission["type"],
-            amount_chunks = transmission["amountChunks"]
-        )
+        self._send_start_message(transmission)
 
         self._send_transmissions[transmission["id"]] = transmission
 
@@ -215,25 +211,18 @@ class PyMidiBridge:
 
         if transmission["nextChunk"] == transmission["amountChunks"]:
             if transmission["type"] == _PMB_TRANSMISSION_TYPE_FILE:
-                # End of file: There must not be any left overs
-                if transmission["handle"].read(transmission["chunkSize"]):
-                    raise Exception() #"Leftover data detected")
-
                 transmission["handle"].close()
                 transmission["handle"] = None
-
-            else:
-                if len(transmission["message"]) > 0:
-                    raise Exception() #"Leftover data detected")
-                
-            return
 
 
     # Sends a MIDI message to request a file
     def request(self, path, chunk_size):
         if not path:
-            raise Exception() #"No path")
-        
+            raise Exception("No path")
+
+        if chunk_size < 1:
+            raise Exception("Invalid chunk size: " + repr(chunk_size))
+
         payload = self._number_2_bytes(chunk_size, _PMB_NUMBER_SIZE_FULLBYTES) + self._string_2_bytes(path)
         checksum = self._get_checksum(payload)
 
@@ -244,10 +233,10 @@ class PyMidiBridge:
 
 
     # Send the "Start of transmission" message
-    def _send_start_message(self, path, transmission_id_bytes, transmission_type, amount_chunks):     
-        amount_chunks_bytes = self._number_2_bytes(amount_chunks, _PMB_NUMBER_SIZE_FULLBYTES)   
+    def _send_start_message(self, transmission):     
+        amount_chunks_bytes = self._number_2_bytes(transmission["amountChunks"], _PMB_NUMBER_SIZE_FULLBYTES)   
         
-        payload = transmission_id_bytes + transmission_type + amount_chunks_bytes + self._string_2_bytes(path)
+        payload = transmission["id"] + transmission["type"] + amount_chunks_bytes + self._string_2_bytes(transmission["path"])
         checksum = self._get_checksum(payload)
         
         self._midi.send_system_exclusive(
@@ -272,8 +261,16 @@ class PyMidiBridge:
 
     # Generate a transmission ID (4 bytes)
     def _generate_transmission_id(self):
-        result = self._number_2_bytes(self._NEXT_ID, _PMB_TRANSMISSION_ID_LENGTH_FULLBYTES)        
-        self._NEXT_ID += 1        
+        if PyMidiBridge._NEXT_ID == None:
+            # Initialize with random seed
+            PyMidiBridge._NEXT_ID = randint(0, 16777216)
+
+        result = self._number_2_bytes(PyMidiBridge._NEXT_ID, _PMB_TRANSMISSION_ID_LENGTH_FULLBYTES)        
+
+        PyMidiBridge._NEXT_ID += 1
+        if PyMidiBridge._NEXT_ID >= 16777216:
+            PyMidiBridge._NEXT_ID = 0
+        
         return result
     
 
@@ -315,7 +312,7 @@ class PyMidiBridge:
             
             # All other messages have a file ID coming next, so we split that off the payload
             transmission_id_bytes = payload[:_PMB_TRANSMISSION_ID_LENGTH_HALFBYTES]
-            payload = payload[_PMB_TRANSMISSION_ID_LENGTH_HALFBYTES:]
+            payload = payload[_PMB_TRANSMISSION_ID_LENGTH_HALFBYTES:]            
 
             # Receive: Start of transmission
             if command_id == PMB_START_MESSAGE:
@@ -329,12 +326,15 @@ class PyMidiBridge:
             elif command_id == PMB_ACK_MESSAGE:
                 self._receive_ack(transmission_id_bytes, payload)                
 
+
         except Exception as e:
             if self._event_handler:
-                self.error(self._event_handler.get_trace(e))
+                trace = self._event_handler.get_trace(e)
+                #print(trace)
+                self.error(trace)
             else:
-                self.error(repr(e))
-            print(e)
+                #print(e)
+                self.error(repr(e))            
 
         return True
 
@@ -373,7 +373,7 @@ class PyMidiBridge:
     # Receive file data
     def _receive_data(self, transmission_id_bytes, payload):
         if not transmission_id_bytes in self._receive_transmissions:
-            raise Exception() #"Transmission not found")
+            raise Exception("Transmission " + repr(transmission_id_bytes) + " not found")
         
         transmission = self._receive_transmissions[transmission_id_bytes]
 
@@ -421,17 +421,22 @@ class PyMidiBridge:
 
     # Receive the chunk ack message
     def _receive_ack(self, transmission_id_bytes, payload):        
-        if transmission_id_bytes in self._send_transmissions:
-            transmission = self._send_transmissions[transmission_id_bytes]
+        if not transmission_id_bytes in self._send_transmissions:
+            raise Exception("Transmission " + repr(transmission_id_bytes) + " not found")
+        
+        transmission = self._send_transmissions[transmission_id_bytes]
 
-            chunk_index = self._bytes_2_number(payload)
-            if chunk_index != transmission["nextChunk"] - 1:
-                raise Exception("Invalid ack chunk: " + repr(chunk_index))
+        chunk_index = self._bytes_2_number(payload)
+        if chunk_index != transmission["nextChunk"] - 1:
+            raise Exception("Invalid ack chunk: " + repr(chunk_index))
 
+        if transmission["nextChunk"] == transmission["amountChunks"]:
+            del self._send_transmissions[transmission_id_bytes]
+
+            if self._event_handler:
+                self._event_handler.transfer_finished(transmission_id_bytes)
+        else:
             self._send_next_chunk(transmission)
-
-        if self._event_handler and (transmission["nextIndex"] == transmission["amountChunks"]):
-            self._event_handler.transfer_finished(transmission_id_bytes)
 
 
     # Sends the "acknowledge successful chunk transfer" message
@@ -564,6 +569,7 @@ class PyMidiBridge:
 #     def transfer_finished(self, transmission_id_bytes):
 #         pass
 #
+#     # Must return a trace from an exception
 #     def get_trace(self, exception):
 #         pass
 
@@ -578,11 +584,11 @@ class PyMidiBridge:
 #
 #     # Must return file size, or any negative number if the file does not exist
 #     def size(self, path):
-#         return 0
+#         return -1
 # 
 #     # Must return an opened file handle. See StorageFileHandle class.
 #     def open(self, path, mode):
-#         return None
+#         return StorageFileHandle()
 
 
 # class StorageFileHandle:

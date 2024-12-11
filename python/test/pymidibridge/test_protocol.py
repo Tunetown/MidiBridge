@@ -1,7 +1,7 @@
 import unittest
 
 # Import subject under test
-from lib.pymidibridge.pymidibridge import *
+from lib.pymidibridge.PyMidiBridge import *
 from .mocks import *
 
 
@@ -11,8 +11,6 @@ class TestProtocol(unittest.TestCase):
         self._test_send_receive(
             path = "foo",
             data = " ",
-            expected_num_messages = 2,
-            use_event_handler = True,
             chunk_size = 100
         )
 
@@ -20,8 +18,6 @@ class TestProtocol(unittest.TestCase):
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "| Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 3,
-            use_event_handler = False,
             chunk_size = 100
         )
 
@@ -29,8 +25,6 @@ class TestProtocol(unittest.TestCase):
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 11,
-            use_event_handler = True,
             chunk_size = 256
         )
 
@@ -38,8 +32,6 @@ class TestProtocol(unittest.TestCase):
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<> | Some foo file content \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS   nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSiojnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS  nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSuiuint \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSnt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS nt \n with newlines \n etc.pp and Umlauts äöü \n acbdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789°^!\2§$%&/()=ß?´`+*#'-_.:,;<>",
-            expected_num_messages = 43,
-            use_event_handler = True,
             chunk_size = 115
         )
 
@@ -47,216 +39,337 @@ class TestProtocol(unittest.TestCase):
         self._test_send_receive(
             path = "/foo/path/to/bar.txt",
             data = "Some UTF-8 content: €€~~{}[]¢[]",
-            expected_num_messages = 2,
-            use_event_handler = True,
             chunk_size = 115
         )
 
 
-    def _test_send_receive(self, path, data, expected_num_messages, use_event_handler, chunk_size):
-        midi = MockMidiSender()
-        storage = MockStorageProvider()        
+    def _test_send_receive(self, path, data, chunk_size):
+        # Bridge for sending data
+        midi_send = MockMidiSender()
+        storage_send = MockStorageProvider()        
 
-        storage.read_data = {
+        storage_send.read_data = {
             "bar": "Hello",
             path: data
         }
 
-        storage.outputs_size = {
+        storage_send.outputs_size = {
             "bar": 5,
             path: len(data)
+        }
+
+        bridge_send = PyMidiBridge(
+            midi = midi_send,
+            storage = storage_send,
+            event_handler = MockEventHandler()
+        )
+
+        # Bridge for receiving data
+        midi_receive = MockMidiSender()
+        storage_receive = MockStorageProvider()        
+
+        bridge_receive = PyMidiBridge(
+            midi = midi_receive,
+            storage = storage_receive,
+            event_handler = MockEventHandler()
+        )
+
+        # Get a request message for the path from the receiving side
+        bridge_receive.request(path, chunk_size)
+        msg_request = midi_receive.messages_sent[0]
+        midi_receive.messages_sent = []
+
+        # Let the sending bridge receive a request message, to trigger it sending a file
+        self.assertEqual(bridge_send.receive(msg_request), True)        
+        self.assertEqual(len(storage_send.created_handles), 1)
+        self.assertEqual(storage_send.created_handles[0].path, path)
+        self.assertEqual(storage_send.created_handles[0].mode, "r")
+
+        self.assertEqual(len(midi_send.messages_sent), 2)
+
+        # Receive start message (no ack)        
+        self.assertEqual(bridge_receive.receive(midi_send.messages_sent.pop(0)), True)
+        self.assertEqual(len(midi_receive.messages_sent), 0)
+
+        # Helper to check ack messages
+        def evaluate_ack(midi_message, exp_chunk_index):
+            self.assertEqual(midi_message.manufacturer_id, PMB_MANUFACTURER_ID)
+            self.assertEqual(midi_message.data[:1], PMB_ACK_MESSAGE)
+
+            bridge = PyMidiBridge(None, None)
+
+            checksum = midi_message.data[1:4]
+            chunk_size = bridge._bytes_2_number(midi_message.data[8:12])
+
+            self.assertEqual(checksum, bridge._get_checksum(midi_message.data[4:]))
+            self.assertEqual(chunk_size, exp_chunk_index)
+
+        # Feed the generated MIDI messages to the receiving bridge, yielding the input data again
+        chunk_index = 0
+        while True:
+            # Get next data message
+            msg = midi_send.messages_sent.pop(0)
+            self.assertLessEqual(len(msg.data), chunk_size * 2 + 8)
+
+            # Feed data message to the receiving bridge (which must answer with ack)
+            self.assertEqual(bridge_receive.receive(msg), True)
+
+            self.assertEqual(len(midi_receive.messages_sent), 1)
+            ack_msg = midi_receive.messages_sent.pop(0)
+            evaluate_ack(ack_msg, chunk_index)
+
+            # Feed the ack message back to the sender bridge to get the next data message
+            self.assertEqual(bridge_send.receive(ack_msg), True)
+            
+            if not midi_send.messages_sent:
+                # No further data
+                break
+
+            # There must be exactly 1 data message
+            self.assertEqual(len(midi_send.messages_sent), 1, "Chunk: " + repr(chunk_index))
+
+            chunk_index += 1
+
+        # Check calls
+        self.assertEqual(len(storage_receive.created_handles), 1)
+        self.assertEqual(storage_receive.created_handles[0].path, path)
+        self.assertEqual(storage_receive.created_handles[0].mode, "a")
+
+        # Compare results
+        self.assertEqual(storage_receive.created_handles[0].write_contents, data)
+    
+
+    def test_receive_invalid_data(self):
+        midi = MockMidiSender()
+
+        bridge = PyMidiBridge(
+            midi = midi,
+            storage = None
+        )
+
+        # Put in some invalid messages too: Different manufacturer ID (no Exception)
+        self.assertEqual(
+            bridge.receive(
+                MockSystemExclusiveMessage(
+                    manufacturer_id = [0x00, 0x01, 0x02],
+                    data = [0x00, 0xac, 0xdc]
+                )
+            ),
+            False
+        )
+
+        self.assertEqual(len(midi.messages_sent), 0)
+
+        # None (no Exception)
+        self.assertEqual(bridge.receive(None), False)
+
+        self.assertEqual(len(midi.messages_sent), 0)
+
+        # Other object (no Exception)
+        self.assertEqual(bridge.receive(self), False)
+
+        self.assertEqual(len(midi.messages_sent), 0)
+
+
+    def test_receive_invalid_checksum(self):
+        self._test_receive_invalid_checksum(True)
+        self._test_receive_invalid_checksum(False)
+
+
+    def _test_receive_invalid_checksum(self, use_event_handler):
+        midi = MockMidiSender()
+        storage = MockStorageProvider()
+        events = MockEventHandler() if use_event_handler else None 
+
+        storage.read_data = {
+            "foo": "Hello"
+        }
+
+        storage.outputs_size = {
+            "foo": 5
         }
 
         bridge = PyMidiBridge(
             midi = midi,
             storage = storage,
-            event_handler = MockEventHandler()
+            event_handler = events
         )
 
         # Get a request message for the path
-        bridge.request(path, chunk_size)
+        bridge.request("foo", 20)
         msg_request = midi.messages_sent[0]
-
-        # Get some messages related to another file        
         midi.messages_sent = []
-        bridge.send_file("bar", 20)
-        self._acknowledge(bridge, midi, all = True)
-        msgs_other_file = [m for m in midi.messages_sent]
-        self.assertGreaterEqual(len(msgs_other_file), 2)
 
-        # Reset mocks
-        midi.messages_sent = []
-        storage.created_handles = []
-
-        # Let the bridge receive a request message, to trigger it sending a file
-        print("----------")
-        self.assertEqual(bridge.receive(msg_request), True)        
-        #print(midi.messages_sent)
-        self._acknowledge(bridge, midi, all = True)
-        
-        self.assertEqual(len(storage.created_handles), 1)
-        self.assertEqual(storage.created_handles[0].path, path)
-        self.assertEqual(storage.created_handles[0].mode, "r")
-
-        for msg in midi.messages_sent:
-            self.assertLessEqual(len(msg.data), chunk_size * 2 + 8)
-
-        # Are amount of generated messages
-        self.assertEqual(len(midi.messages_sent), expected_num_messages)
-        
-        # Feed back the generated MIDI messages to the bridge, yielding the input data again
-        failure_tests_done = False
-        # cnt = 0
-        msgs = [m for m in midi.messages_sent]
-        for msg in msgs:
-            self.assertEqual(bridge.receive(msg), True)
-
-            # if cnt == len(msgs) - 1:
-            #     # Last message: Must have an ack message sent
-            #     self._evaluate_ack(midi.last_message)
-
-            # cnt += 1
-
-            if failure_tests_done:
-                continue
-            
-            # Put in some invalid messages too: Different manufacturer ID (no Exception)
-            self.assertEqual(
-                bridge.receive(
-                    MockSystemExclusiveMessage(
-                        manufacturer_id = [0x00, 0x01, 0x02],
-                        data = [0x00, 0xac, 0xdc]
-                    )
-                ),
-                False
-            )
-
-            # None (no Exception)
-            self.assertEqual(bridge.receive(None), False)
-
-            # Transmission errors: Change some byte (must return an error message)
-            midi.messages_sent = []
-            self.assertEqual(
-                bridge.receive(
-                    MockSystemExclusiveMessage(
-                        manufacturer_id = msg.manufacturer_id,
-                        data = [msg.data[i] if i != 1 else msg.data[i - 1] for i in range(len(msg.data))]
-                    )
-                ), 
-                True
-            )
-            if use_event_handler:        
-                self._evaluate_error(midi.messages_sent, "Checksum")
-
-            # Different file ID: Take a data message from the other file (no exception)
-            self.assertEqual(bridge.receive(msgs_other_file[len(msgs_other_file)-1]), True)
-
-            # Invalid chunk index: Repeat first chunk (must issue an error message)
-            midi.messages_sent = []
-            self.assertEqual(bridge.receive(self._generate_invalid_chunk(msg)), True)
-            self._evaluate_error(midi.messages_sent, "Invalid chunk")
-
-            failure_tests_done = True
-
-        # Check calls
-        self.assertEqual(len(storage.created_handles), 2)
-        self.assertEqual(storage.created_handles[1].path, path)
-        self.assertEqual(storage.created_handles[1].mode, "a")
-
-        # Compare results
-        self.assertEqual(storage.created_handles[1].write_contents, data)
-
-
-    # Send a file inkl. ack message handling
-    def _acknowledge(self, bridge, midi, all = False):
-        if not midi.messages_sent:
-            return
-
-        other_midi = MockMidiSender()
-        other_bridge = PyMidiBridge(
-            midi = other_midi, 
-            storage =  MockStorageProvider()
-        )
-
-        #self.assertEqual(len(midi.messages_sent), 2, "This must be called with two messages (start/first chunk) only!")
-
-        # Data messages
-        cnt = 0
-        while True:
-            old_size = len(other_midi.messages_sent)
-
-            other_bridge.receive(midi.messages_sent[cnt])
-            cnt += 1
-
-            if not all:                
-                break
-
-            if cnt > 1:
-                if old_size == len(other_midi.messages_sent):
-                    break
-
-            if other_midi.messages_sent:
-                last_msg = other_midi.messages_sent[-1]
-                bridge.receive(last_msg)
-
-
-    # Generates an invalid chunk for the file_id in the passed message. The chunk 0 is used, because this is invalid after
-    def _generate_invalid_chunk(self, midi_message, invalid_index = 999):
-        bridge = PyMidiBridge(None, None)
-
-        file_id = midi_message.data[4:8]
-        chunk_index = bridge._number_2_bytes(invalid_index, 3)
-        data = bridge._string_2_bytes("foo")
-
-        payload = file_id + chunk_index + data
-        checksum = bridge._get_checksum(payload)
-
-        return MockSystemExclusiveMessage(
-            manufacturer_id = PMB_MANUFACTURER_ID,
-            data = PMB_DATA_MESSAGE + checksum + payload 
-        )
-    
-
-    # Helper to check error messages
-    def _evaluate_error(self, midi_messages, token):
-        events = MockEventHandler()
-
-        midi = MockMidiSender()
-
-        bridge = PyMidiBridge(
-            midi = midi, 
-            storage = None,
-            event_handler = events
+        # Transmission errors: Change some byte (must return an error message)
+        self.assertEqual(
+            bridge.receive(
+                MockSystemExclusiveMessage(
+                    manufacturer_id = msg_request.manufacturer_id,
+                    data = [msg_request.data[i] if i != 1 else msg_request.data[i - 1] for i in range(len(msg_request.data))]
+                )
+            ), 
+            True
         )        
 
-        events.last_error = None
+        self._evaluate_error(bridge, midi, ["Checksum"])
+
+
+    def test_receive_no_storage(self):
+        # Bridge for sending data
+        midi_send = MockMidiSender()
+        storage_send = MockStorageProvider()        
+
+        storage_send.read_data = {
+            "foo": "Hello"
+        }
+
+        storage_send.outputs_size = {
+            "foo": 5
+        }
+
+        bridge_send = PyMidiBridge(
+            midi = midi_send,
+            storage = storage_send
+        )
+
+        # Bridge for receiving data
+        midi_receive = MockMidiSender()
+
+        bridge_receive = PyMidiBridge(
+            midi = midi_receive
+        )
+
+        bridge_send.send_file("foo", 20)
+
+        self.assertEqual(len(midi_send.messages_sent), 2)
+
+        # Must throw when receiving start message
+        bridge_receive.receive(midi_send.messages_sent.pop(0))
+
+        self._evaluate_error(bridge_send, midi_receive, ["storage"])
+
+
+    def test_receive_invalid_transmission(self):
+        # Bridge for sending data
+        midi_send = MockMidiSender()
+        storage_send = MockStorageProvider()        
+
+        storage_send.read_data = {
+            "foo": "Hello"
+        }
+
+        storage_send.outputs_size = {
+            "foo": 5
+        }
+
+        bridge_send = PyMidiBridge(
+            midi = midi_send,
+            storage = storage_send
+        )
+
+        # Bridge for sending other data
+        midi_send_2 = MockMidiSender()
+        storage_send_2 = MockStorageProvider()        
+
+        storage_send_2.read_data = {
+            "foo": "Hello"
+        }
+
+        storage_send_2.outputs_size = {
+            "foo": 5
+        }
+
+        bridge_send_2 = PyMidiBridge(
+            midi = midi_send_2,
+            storage = storage_send_2
+        )
+
+        # Bridge for receiving data
+        midi_receive = MockMidiSender()
+
+        bridge_receive = PyMidiBridge(
+            midi = midi_receive,
+            storage = MockStorageProvider()
+        )
+
+        # Main transmission
+        bridge_send.send_file("foo", 20)
+        self.assertEqual(len(midi_send.messages_sent), 2)
+
+        # Other transmission
+        bridge_send_2.send_file("foo", 20)
+        self.assertEqual(len(midi_send_2.messages_sent), 2)
+
+        # Start message for main transmission
+        bridge_receive.receive(midi_send.messages_sent.pop(0))
+
+        # Data message of another transmission
+        bridge_receive.receive(midi_send_2.messages_sent.pop())
+
+        self._evaluate_error(bridge_send, midi_receive, ["Transmission", "not found"])
+
+
+    def test_receive_invalid_chunk(self):
+        # Bridge for sending data
+        midi_send = MockMidiSender()
+        storage_send = MockStorageProvider()        
+
+        storage_send.read_data = {
+            "foo": "HelloHelloHelloHelloHelloHelloHelloHelloHelloHello"
+        }
+
+        storage_send.outputs_size = {
+            "foo": 50
+        }
+
+        bridge_send = PyMidiBridge(
+            midi = midi_send,
+            storage = storage_send
+        )
+
+        # Bridge for receiving data
+        midi_receive = MockMidiSender()
+
+        bridge_receive = PyMidiBridge(
+            midi = midi_receive,
+            storage = MockStorageProvider()
+        )
+
+        # Main transmission
+        bridge_send.send_file("foo", 5)
+        self.assertEqual(len(midi_send.messages_sent), 2)
+
+        # Start message for main transmission
+        bridge_receive.receive(midi_send.messages_sent.pop(0))
+
+        # Data message #1
+        bridge_receive.receive(midi_send.messages_sent.pop(0))
         
-        for msg in midi_messages:
-            self.assertEqual(bridge.receive(msg), True)
-            self._acknowledge(bridge, midi)
+        # Ack message #1
+        self.assertEqual(len(midi_send.messages_sent), 0)
+        self.assertEqual(len(midi_receive.messages_sent), 1)
         
-        self.assertIsNotNone(events.last_error, "Exception not thrown: " + token)
-        self.assertIn(token, events.last_error)
+        bridge_send.receive(midi_receive.messages_sent.pop(0))
 
+        self.assertEqual(len(midi_send.messages_sent), 1)
 
-    # # Helper to check ack messages
-    # def _evaluate_ack(self, midi_message):
-    #     self.assertEqual(midi_message.manufacturer_id, PMB_MANUFACTURER_ID)
-    #     self.assertEqual(midi_message.data[:1], PMB_ACK_MESSAGE)
+        # Data message #2
+        data_message_2 = midi_send.messages_sent.pop(0)
+        bridge_receive.receive(data_message_2)
         
-    #     events = MockEventHandler()
+        # Ack message #2
+        self.assertEqual(len(midi_send.messages_sent), 0)
+        self.assertEqual(len(midi_receive.messages_sent), 1)
+        bridge_send.receive(midi_receive.messages_sent.pop(0))
 
-    #     bridge = PyMidiBridge(
-    #         midi = None, 
-    #         storage = None,
-    #         event_handler = events
-    #     )        
+        self.assertEqual(len(midi_send.messages_sent), 1)
 
-    #     events.last_ack = None        
-    #     self.assertEqual(bridge.receive(midi_message), True)
-    #     self.assertIsNotNone(events.last_ack)
+        # Data message #2 again (invalid!)
+        bridge_receive.receive(data_message_2)
         
+        self._evaluate_error(bridge_send, midi_receive, ["Invalid", "chunk"])
 
+        
     def test_receive_reboot(self):
         bridge = PyMidiBridge(None, None)
 
@@ -268,7 +381,7 @@ class TestProtocol(unittest.TestCase):
                 )
             )
 
-    
+
     def test_send_no_path(self):
         bridge = PyMidiBridge(None, None)
 
@@ -300,14 +413,14 @@ class TestProtocol(unittest.TestCase):
         bridge = PyMidiBridge(None, None)
 
         with self.assertRaises(Exception):
-            bridge.send_string("", 1)
+            bridge.send_string("", "", 1)
 
 
     def test_send_string_invalid_chunk_size(self):
         bridge = PyMidiBridge(None, None)
 
         with self.assertRaises(Exception):
-            bridge.send_string("message", -1)
+            bridge.send_string("foo", "message", -1)
 
 
     def test_request_file_not_found(self):
@@ -337,8 +450,7 @@ class TestProtocol(unittest.TestCase):
         midi.messages_sent = []
         self.assertEqual(bridge.receive(msg_request), True)
         
-        self._evaluate_error(midi.messages_sent, "foo")
-        self._evaluate_error(midi.messages_sent, "not found")
+        self._evaluate_error(bridge, midi, ["foo", "not found"])
 
 
     def test_request_empty_file(self):
@@ -364,8 +476,7 @@ class TestProtocol(unittest.TestCase):
         midi.messages_sent = []
         self.assertEqual(bridge.receive(msg_request), True)
         
-        self._evaluate_error(midi.messages_sent, "foo")
-        self._evaluate_error(midi.messages_sent, "empty")
+        self._evaluate_error(bridge, midi, ["foo", "empty"])
         
 
 ############################################################################################################
@@ -388,6 +499,7 @@ class TestProtocol(unittest.TestCase):
         bridge.request(exp_path, exp_chunk_size)
 
         msg_sent = midi.messages_sent[0]
+        
         self.assertEqual(msg_sent.manufacturer_id, PMB_MANUFACTURER_ID)
         self.assertEqual(msg_sent.data[:1], PMB_REQUEST_MESSAGE)
 
@@ -435,4 +547,37 @@ class TestProtocol(unittest.TestCase):
 
             buffer.append(transmission_id)            
 
+
+############################################################################################################
+
+
+    # Helper to check error messages.
+    def _evaluate_error(self, bridge, midi, tokens):
+        self.assertEqual(len(midi.messages_sent), 2)
+
+        events = MockEventHandler()
+        other_midi = MockMidiSender()
+        other_bridge = PyMidiBridge(
+            midi = other_midi, 
+            storage = MockStorageProvider(),
+            event_handler = events
+        )        
+
+        events.last_error = None
+        
+        while True:
+            if not midi.messages_sent:
+                break
+
+            msg = midi.messages_sent.pop(0)
+            
+            self.assertEqual(other_bridge.receive(msg), True)
+
+            while other_midi.messages_sent:
+                bridge.receive(other_midi.messages_sent.pop(0))
+                
+        self.assertIsNotNone(events.last_error, "Exception not thrown: " + repr(tokens))
+
+        for token in tokens:
+            self.assertIn(token, events.last_error)
 

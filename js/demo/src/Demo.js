@@ -40,6 +40,7 @@ class Demo {
 
         // MIDI bridge handler
         this.#midi = new MidiBridgeHandler();
+        this.#midi.console = this.#ui.console;
 
         // Router
         this.routing = new Routing(this);

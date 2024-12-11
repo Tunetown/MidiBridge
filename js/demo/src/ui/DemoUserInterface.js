@@ -70,7 +70,7 @@ class DemoUserInterface {
 
             // Content
             $('<div class="contentArea"/>').append(
-                folderListingElement = $('<div class="folderListing"/>'),
+                folderListingElement = $('<div class="folderListing"/>').text("Connecting, please wait..."),
 
                 // Editor
                 editorElement = $('<div class="editor"/>'),
@@ -93,6 +93,8 @@ class DemoUserInterface {
         this.#editor = new DemoEditor(editorElement, this);
         this.#listing = new DemoFolderListing(folderListingElement);
         this.console = new DemoConsole(consoleElement);
+
+        this.#editor.hide();
     }
     
     /**

@@ -3,7 +3,7 @@ import json
 from os import stat, path
 
 # Import subject under test
-from lib.pymidibridge.pymidibridge import *
+from lib.pymidibridge.PyMidiBridge import *
 from .mocks import *
 
 TEST_DATA_FOLDER = "/project/test/data/"

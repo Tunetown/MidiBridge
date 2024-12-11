@@ -1,4 +1,5 @@
 import traceback 
+    
 
 class MockSystemExclusiveMessage:
     def __init__(self, manufacturer_id = bytes([]), data = bytes([])):
@@ -12,22 +13,24 @@ class MockSystemExclusiveMessage:
 class MockMidiSender:
     def __init__(self, serializable = False):
         self.messages_sent = []
+        self.messages_all = []
         self._serializable = serializable
 
     def send_system_exclusive(self, manufacturer_id, data):
         if self._serializable:
             # Use serializable representation
-            self.messages_sent.append({
+            obj = {
                 "manufacturerId": list(manufacturer_id),
                 "data": list(data)
-            })
+            }
         else:
-            self.messages_sent.append(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = manufacturer_id,
-                    data = data
-                )
+            obj = MockSystemExclusiveMessage(
+                manufacturer_id = manufacturer_id,
+                data = data
             )
+
+        self.messages_sent.append(obj)
+        self.messages_all.append(obj)
 
     @property
     def last_message(self):
@@ -109,4 +112,5 @@ class MockEventHandler:
         self.last_ack = path
 
     def get_trace(self, exception):
-        return traceback.format_exception(None, exception, exception.__traceback__)
+        return "\n".join(traceback.format_exception(None, exception, exception.__traceback__))
+    

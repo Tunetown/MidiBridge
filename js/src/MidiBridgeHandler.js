@@ -37,6 +37,8 @@ class MidiBridgeHandler {
 
     #midiAccess = null;       // MIDIAccess instance
 
+    console = console;           // Console output (can be redirected)
+
     /**
      * Sets up MIDI communication
      */
@@ -49,7 +51,7 @@ class MidiBridgeHandler {
                     reject({ message: "You must allow SystemExclusive messages" });
                 }
 
-                console.log("MIDI ready");
+                that.console.log("MIDI ready");
 
                 // Use a handler class for accessing the bridge and creating the connection
                 that.#midiAccess = midiAccess;
@@ -82,14 +84,14 @@ class MidiBridgeHandler {
             try {
                 const connection = await that.connect(input, output);                
 
-                console.log("   -> Connection success with ", output.name);
+                that.console.log("   -> Connection success with " + output.name);
 
                 if (onFinish) {
                     onFinish(connection);
                 }
     
             } catch (e) {
-                console.log("   -> Failed to connect to ", output.name);
+                that.console.log("   -> Timeout connecting to " + output.name);
             }        
         }
 
@@ -122,7 +124,7 @@ class MidiBridgeHandler {
                 )
             }
 
-            async function receive(data) {
+            async function receive(/*data*/) {
                 bridge.onReceiveFinish = null;
                 bridge.onError = null;
                 
@@ -159,7 +161,7 @@ class MidiBridgeHandler {
      * Start listening to a port (connects the bridge to it)
      */
     #listenTo(input, bridge) {
-        console.log("Listening to input port " + input.name)
+        this.console.log("Listening to input port " + input.name)
 
         input.onmidimessage = async function(event) {
             // Check if its a sysex message
@@ -200,7 +202,7 @@ class MidiBridgeHandler {
                 const out_handler = output[1];
 
                 if ((out_handler.manufacturer == in_handler.manufacturer) && (out_handler.name == in_handler.name)) {
-                    console.log("Scan: Found matching ins/outs: " + out_handler.name);
+                    //this.console.log("Scan: Found matching ins/outs: " + out_handler.name);
                     ret.push({
                         input: in_handler,
                         output: out_handler
