@@ -62,6 +62,7 @@ class DemoUserInterface {
                     })
                 ),
                 $('<div class="buttons" />').append(
+                    // Save button
                     this.#saveButton = $('<div class="fa fa-save" />')
                     .on("click", function(event) {
                         const content = that.#editor.getContent();

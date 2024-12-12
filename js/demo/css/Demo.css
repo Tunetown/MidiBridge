@@ -45,7 +45,7 @@ body {
 }
 
 .header > .pathInput {
-	padding-right: 15px;
+	padding-right: 7px;
 }
 
 .header > .pathInput > input {
@@ -59,6 +59,8 @@ body {
 
 .header > .buttons > * {
 	cursor: pointer;
+	display: inline;
+	padding-left: 7px;
 }
 
 /***************************************************/

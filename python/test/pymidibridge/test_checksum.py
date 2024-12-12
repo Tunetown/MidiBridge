@@ -1,10 +1,9 @@
 import unittest
-
-# Import subject under test
-from lib.pymidibridge.PyMidiBridge import PyMidiBridge
+from unittest.mock import patch   # Necessary workaround! Needs to be separated.
 
 from .mocks import *
-
+from lib.pymidibridge.PyMidiBridge import *
+    
 
 class TestChecksum(unittest.TestCase):
 

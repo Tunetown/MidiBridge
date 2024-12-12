@@ -1,10 +1,10 @@
 import unittest
 import json
-from os import stat, path
+from os import path
 
-# Import subject under test
-from lib.pymidibridge.PyMidiBridge import *
 from .mocks import *
+from lib.pymidibridge.PyMidiBridge import *
+    
 
 TEST_DATA_FOLDER = "/project/test/data/"
 

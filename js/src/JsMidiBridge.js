@@ -376,6 +376,7 @@ class JsMidiBridge {
 		);
 	}
 
+
     /** 
 	 * Generate a transmission ID (4 bytes)
 	 */ 
@@ -400,6 +401,7 @@ class JsMidiBridge {
 
         return result;
     }
+
 
     // Receive Messages ##########################################################################################################
 

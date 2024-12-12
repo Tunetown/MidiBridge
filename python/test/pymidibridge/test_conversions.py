@@ -1,10 +1,8 @@
 import unittest
 
-# Import subject under test
-from lib.pymidibridge.PyMidiBridge import PyMidiBridge
-
 from .mocks import *
-
+from lib.pymidibridge.PyMidiBridge import *
+    
 
 class TestConversions(unittest.TestCase):
 

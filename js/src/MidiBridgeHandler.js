@@ -248,9 +248,6 @@ class MidiBridgeHandler {
             const manufacturerId = Array.from(event.data).slice(1, 4);
             const data = Array.from(event.data).slice(4, event.data.length - 1);
             
-            //console.log("SysEx coming in on " + port.name + " (" + event.data.length + " bytes):")
-            //console.log(manufacturerId, data);
-
             // Pass it to the bridge
             await bridge.receive({
                 manufacturerId: manufacturerId,

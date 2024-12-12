@@ -1,9 +1,8 @@
 import unittest
 
-# Import subject under test
-from lib.pymidibridge.PyMidiBridge import *
 from .mocks import *
-
+from lib.pymidibridge.PyMidiBridge import *
+    
 
 class TestProtocol(unittest.TestCase):
 
@@ -370,18 +369,6 @@ class TestProtocol(unittest.TestCase):
         self._evaluate_error(bridge_send, midi_receive, ["Invalid", "chunk"])
 
         
-    def test_receive_reboot(self):
-        bridge = PyMidiBridge(None, None)
-
-        with self.assertRaises(SystemExit):
-            bridge.receive(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = PMB_MANUFACTURER_ID,
-                    data = PMB_REBOOT_MESSAGE
-                )
-            )
-
-
     def test_send_no_path(self):
         bridge = PyMidiBridge(None, None)
 

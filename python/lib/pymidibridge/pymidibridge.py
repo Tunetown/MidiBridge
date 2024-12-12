@@ -4,7 +4,6 @@
 #
 ###################################################################################################################
 
-from sys import exit
 from math import ceil
 from random import randint
 
@@ -56,12 +55,6 @@ PMB_DATA_MESSAGE = b'\x03'
 #     <Chunk index, 4 half-bytes>
 # ]
 PMB_ACK_MESSAGE = b'\x04'
-
-# Message to reboot the device (calls sys.exit() which on CircuitPy triggers a reboot)
-# Syntax: [
-#     *PMB_REBOOT_MESSAGE
-# ]
-PMB_REBOOT_MESSAGE = b'\x66'
 
 
 ####################################################################################################################
@@ -300,10 +293,6 @@ class PyMidiBridge:
         
         # This determines what the sender of the message wants to do
         command_id = midi_message.data[:_PMB_PREFIXES_LENGTH_HALFBYTES]
-
-        # Receive: Reboot
-        if command_id == PMB_REBOOT_MESSAGE:
-            exit()
 
         # Next there is the checksum for all messages
         checksum_bytes = midi_message.data[_PMB_PREFIXES_LENGTH_HALFBYTES:_PMB_PREFIXES_LENGTH_HALFBYTES + _PMB_CHECKSUM_LENGTH_HALFBYTES]
