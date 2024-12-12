@@ -66,7 +66,7 @@ class DemoListing {
      */
     message(msg) {
         this.#listingElement.append(
-            $('<div />').text(msg)
+            $('<div />').html(msg)
         ); 
     }
 
