@@ -35,11 +35,38 @@ class Routing {
         // Initialze sammy.js routing. Here, all routes are defined:
         this.sammy = $.sammy('body', function() {
 
-            this.get(/\#\/(.*)/, that.#queue.add(async function() {
-                const path = this.params['splat'];
-                that.#app.open("/" + path);
+            // Scan routes
+            this.get("#", that.#queue.add(async function() {
+                await that.#app.scan();
+            }));
+
+            this.get("#/", that.#queue.add(async function() {
+                await that.#app.scan();
+            }));
+
+            // Show available ports
+            this.get("#ports", that.#queue.add(async function() {
+                await that.#app.showPorts();
+            }));
+
+            // SHow contents
+            this.get(/\#content\/(.*)/, that.#queue.add(async function() {
+                let path = decodeURI(this.params['splat'][0]);
+                console.log(path)
+                const tokens = path.split("/");
+
+                const portName = tokens.shift();
+                path = tokens.join("/");                
+
+                await that.#app.open(portName, path);
             }));
         });
+
+        // Error handling
+        this.sammy.error = function(exp) {
+            that.#app.ui.console.error("Route not found or errors thrown:");
+            that.#app.ui.console.error(exp);
+        }
     }
 
     /**
@@ -50,16 +77,16 @@ class Routing {
 	}
 	
 	/**
-	 * Refresh current path
+	 * Refresh
 	 */
 	refresh() {
 		this.sammy.refresh();
 	}
 
     /**
-     * Calls the passed path
+     * Calls the passed uri path
      */
-    callPath(path) {
-        location.href = location.protocol +'//'+ location.host + (location.pathname ? location.pathname : '') + '#' + path;
+    call(path) {
+        location.href = location.protocol +'//'+ location.host + (location.pathname ? location.pathname : '') + '#' + encodeURI(path);
     }
 }

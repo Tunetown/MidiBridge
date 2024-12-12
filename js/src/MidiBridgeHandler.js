@@ -22,17 +22,22 @@
  * still open at the time of writing this (12/2024). Later this could be enlarged to reduce
  * protocol overhead.
  */
-const BRIDGE_CHUNK_SIZE = 100;
+const BRIDGE_CHUNK_SIZE_REQUEST = 100;
+
+/**
+ * Chunk size for sending data. This also has been determined empirically.
+ */
+const BRIDGE_CHUNK_SIZE_SEND = 65;
 
 /**
  * Timeout until it is assumed there is no client listening
  */
-const TIMEOUT_INTERVAL_MILLIS = 10000;
+const BRIDGE_TIMEOUT_INTERVAL_MILLIS = 10000;
 
 /**
  * Debug bridge messages on the console
  */
-const MIDI_BRIDGE_DEBUG = true;
+const BRIDGE_DEBUG = false;
 
 /**
  * Use this class to initialize the bridge and connect it to Web MIDI API ports. 
@@ -40,9 +45,13 @@ const MIDI_BRIDGE_DEBUG = true;
  */
 class MidiBridgeHandler {
 
-    #midiAccess = null;       // MIDIAccess instance
-
+    #midiAccess = null;          // MIDIAccess instance
     console = console;           // Console output (can be redirected)
+    #connectionAttempts = null;  // Map of attempts for scan
+    
+    constructor() {
+        this.#connectionAttempts = new Map();
+    }
 
     /**
      * Sets up MIDI communication
@@ -55,8 +64,6 @@ class MidiBridgeHandler {
                 if (!midiAccess.sysexEnabled) {
                     reject({ message: "You must allow SystemExclusive messages" });
                 }
-
-                that.console.log("MIDI ready");
 
                 // Use a handler class for accessing the bridge and creating the connection
                 that.#midiAccess = midiAccess;
@@ -75,56 +82,81 @@ class MidiBridgeHandler {
 
     /**
      * Scan for ports with bridges behind (attach a bridge to every port, and see where something is coming back).
-     * onFinish can be a callback like (data) => void, where data is like: 
+     * onFinish can be a callback like (data) => boolean, where data is like: 
      * {
      *     bridge: Bridge instance to attach callbacks on. The sendSysex callback is already set.
      *     input: Input port (MIDIInput)
      *     output: Output port (MIDIOutput)
      * }
+     * 
+     * The callback must return if it used the connection (in this case all other connection attempts are terminated)
      */
     scan(onFinish = null) {
-        const that = this;
+        // Get all in/out pairs sharing the same name
+        const ports = this.#getMatchingPortPairs();
 
-        async function scanPorts(input, output) {
+        const that = this;        
+        async function scanPorts(name) {            
             try {
-                const connection = await that.connect(input, output);                
+                const connection = await that.connect(name);
 
-                that.console.log("   -> Connection success with " + output.name);
+                that.console.log("   -> Connection success with " + name);
 
                 if (onFinish) {
-                    onFinish(connection);
+                    const terminate = await onFinish(connection);
+
+                    if (terminate) {
+                        (new Map(that.#connectionAttempts)).forEach(function(attempt) {
+                            attempt.reject();
+                        });
+                    }
                 }
     
             } catch (e) {
-                that.console.log("   -> Timeout connecting to " + output.name);
+                that.console.log("   -> Error connecting to " + name);
             }        
         }
-
-        // Get all in/out pairs sharing the same name
-        const ports = this.#getMatchingPortPairs();
 
         // Start connecting to all of them (connectToPort will be called async without await 
         // for pseudo parallel processing)
         for (const pair of ports) {            
-            scanPorts(pair.input, pair.output);
+            scanPorts(pair.input.name);
         }        
     }
 
     /**
-     * Connect to a port pair. 
+     * Connect to a port input/output pair by port name.
      */
-    async connect(input, output) {
+    async connect(portName) {
         const that = this;
 
-        const path = "/notexistingfile";
+        function findPort(ports) {
+            for (const port of ports) {
+                const handler = port[1];
+                    
+                if (handler.name == portName) {
+                    return handler;
+                }                
+            }
+            
+            throw new Error("Port " + portName + " not found");
+        }
+
+        const input = findPort(that.#midiAccess.inputs);
+        const output = findPort(that.#midiAccess.outputs);
+
+        // We use a name most likely not existing. If it does exist, this would also work,
+        // but the overhead is bigger.
+        const path = "/mostlikelynotexistingfolder/ping";
 
         return new Promise(function(resolve, reject) {
             const bridge = new JsMidiBridge();
 
-            if (MIDI_BRIDGE_DEBUG) {
+            if (BRIDGE_DEBUG) {
                 bridge.console = that.console;
             }
 
+            // Connect bridge output to the output
             bridge.sendSysex = async function(manufacturerId, data) {
                 await that.#sendSysex(
                     output,
@@ -133,44 +165,79 @@ class MidiBridgeHandler {
                 )
             }
 
-            async function receive(/*data*/) {
-                bridge.onReceiveFinish = null;
-                bridge.onError = null;
+            function doResolve(/*data*/) {
+                that.#connectionAttempts.delete(portName);
+
+                // Remove callbacks only used for pinging
+                bridge.onReceiveFinish = async function() {};
+                bridge.onError = async function() {};
                 
+                // Stop the timout
                 clearTimeout(timeout);
+                
                 resolve({
                     bridge: bridge,
+                    name: output.name,
                     input: input,
                     output: output
                 });
             }
 
-            bridge.onReceiveFinish = receive;
-            bridge.onError = receive;
+            function doReject() {
+                that.#connectionAttempts.delete(portName);
+
+                // Remove all callbacks
+                that.detach({
+                    input: input,
+                    bridge: bridge
+                })
+
+                // Stop the timout
+                clearTimeout(timeout);
+
+                reject({
+                    name: output.name,
+                    input: input,
+                    output: output
+                });
+            }
+
+            // Listen to both finish and error events to know there is a bridge listening
+            bridge.onReceiveFinish = doResolve;
+            bridge.onError = doResolve;
             
             // Attach listener
             that.#listenTo(input, bridge);
 
-            bridge.request(path, BRIDGE_CHUNK_SIZE);
+            // Request the non-existing file (async but not awaited)
+            bridge.request(path, BRIDGE_CHUNK_SIZE_REQUEST);
 
             // Timeout
-            let timeout = setTimeout(
-                function() {
-                    reject({
-                        input: input,
-                        output: output
-                    });
-                }, 
-                TIMEOUT_INTERVAL_MILLIS
-            );
+            let timeout = setTimeout(doReject, BRIDGE_TIMEOUT_INTERVAL_MILLIS);
+
+            // Register the connection attempt
+            that.#connectionAttempts.set(portName, {
+                reject: doReject
+            })
         });
     }
     
     /**
+     * Called with the result of connect(), this detaches the connection.
+     */
+    detach(connection) {
+        connection.bridge.sendSysex = async function() {};
+        connection.bridge.onReceiveFinish = async function() {};
+        connection.bridge.onError = async function() {};
+
+        connection.input.onmidimessage = async function() {};
+    }
+
+    /**
      * Start listening to a port (connects the bridge to it)
      */
     #listenTo(input, bridge) {
-        this.console.log("Listening to input port " + input.name)
+        //this.console.log("Listening to input port " + input.name)
 
         input.onmidimessage = async function(event) {
             // Check if its a sysex message
@@ -213,6 +280,7 @@ class MidiBridgeHandler {
                 if ((out_handler.manufacturer == in_handler.manufacturer) && (out_handler.name == in_handler.name)) {
                     //this.console.log("Scan: Found matching ins/outs: " + out_handler.name);
                     ret.push({
+                        name: out_handler.name,
                         input: in_handler,
                         output: out_handler
                     });

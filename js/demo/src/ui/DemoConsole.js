@@ -28,11 +28,35 @@ class DemoConsole {
      */
     log(message) {
         console.log(message);
-        
+        this.#message(message, "message");
+    }
+
+    /**
+     * Show an error message
+     */
+    error(message) {
+        console.error(message);
+        this.#message(message, "error");
+    }
+
+    /**
+     * Shows an info message (success).
+     */
+    info(message) {
+        console.info(message);
+        this.#message(message, "info");
+    }
+
+    //#############################################################################
+
+    /**
+     * Add a message 
+     */
+    #message(message, className) {
         const ts = new Date().toLocaleTimeString();
 
         this.#consoleElement.append(
-            $('<div class="message" />').append(
+            $('<div class="' + className + '" />').append(
                 $('<div />').text(ts),
                 $('<div />').text(message)
             )
@@ -42,23 +66,8 @@ class DemoConsole {
     }
 
     /**
-     * Show an error message
+     * Scroll to last line
      */
-    error(message) {
-        console.error(message);
-
-        const ts = new Date().toLocaleTimeString();
-
-        this.#consoleElement.append(
-            $('<div class="error" />').append(
-                $('<div />').text(ts),
-                $('<div />').text(message)
-            )
-        );
-
-        this.#focus();
-    }
-
     #focus() {
         this.#consoleElement[0].scrollTo(0, this.#consoleElement[0].scrollHeight);
     }

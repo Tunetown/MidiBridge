@@ -209,7 +209,7 @@ class PyMidiBridge:
             chunk = transmission["message"][:chunk_size]
             transmission["message"] = transmission["message"][chunk_size:]
         
-        self._send_chunk(transmission["id"], chunk, transmission["nextChunk"])
+        self._send_chunk(transmission, chunk)
 
         transmission["nextChunk"] += 1
 
@@ -253,15 +253,15 @@ class PyMidiBridge:
 
 
     # Sends one chunk of data
-    def _send_chunk(self, transmission_id_bytes, chunk, chunk_index):
+    def _send_chunk(self, transmission, chunk):
         data_bytes = self._string_2_bytes(chunk)
-        chunk_index_bytes = self._number_2_bytes(chunk_index, _PMB_NUMBER_SIZE_FULLBYTES)
+        chunk_index_bytes = self._number_2_bytes(transmission["nextChunk"], _PMB_NUMBER_SIZE_FULLBYTES)
         
-        payload = transmission_id_bytes + chunk_index_bytes + data_bytes
+        payload = transmission["id"] + chunk_index_bytes + data_bytes
         checksum = self._get_checksum(payload)
         
         if self._debug:
-            print("Send data chunk " + repr(chunk_index))
+            print("Send data chunk " + repr(transmission["nextChunk"]))
 
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,

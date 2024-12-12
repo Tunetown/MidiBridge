@@ -21,7 +21,7 @@ class DemoEditor {
     #editor = null;
     #ui = null;
     
-    constructor(editorElement, ui) {
+    constructor(ui, editorElement) {
         this.#editorElement = editorElement;
         this.#ui = ui;
 
@@ -60,9 +60,6 @@ class DemoEditor {
        return this.#editor.getValue();
     }
 
-    /**
-     * Show the passed content
-     */
     setContent(content) {
         this.#editor.setValue(content);        
     }

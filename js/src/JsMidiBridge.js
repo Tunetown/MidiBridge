@@ -157,6 +157,17 @@ class JsMidiBridge {
     getFile = async function(path) { throw new Error("No getFile callback set, cannot get data for " + path) };
 
     /**
+     * Called on every sent chunk. Data:
+     * {
+     *     path: 
+     *     transmissionId:
+     *     chunk:      Index of the current chunk
+     *     numChunks:
+     * }
+     */
+    onSendProgress = async function(data) {};
+
+    /**
      * Called when receiving starts. Data:
      * {
      *     path: 
@@ -168,7 +179,7 @@ class JsMidiBridge {
     onReceiveStart = async function(data) {};
     
     /**
-     * Called on every sent chunk. Data:
+     * Called on every received chunk. Data:
      * {
      *     path: 
      *     transmissionId:
@@ -282,7 +293,7 @@ class JsMidiBridge {
         const chunk = transmission.message.slice(0, transmission.chunkSize);
         transmission.message = transmission.message.slice(transmission.chunkSize);
         
-        await this.#sendChunk(transmission.id, chunk, transmission.nextChunk);
+        await this.#sendChunk(transmission, chunk);
 
         transmission.nextChunk += 1;
     }
@@ -336,18 +347,28 @@ class JsMidiBridge {
     /**
 	 * Sends one chunk of data
 	 */ 
-    async #sendChunk(transmissionIdBytes, chunk, chunkIndex) {
+    async #sendChunk(transmission, chunk) {
         const dataBytes = Array.from(this.string2bytes(chunk));
-        const chunkIndexBytes = Array.from(this.number2bytes(chunkIndex, JMB_NUMBER_SIZE_FULLBYTES));
+        const chunkIndexBytes = Array.from(this.number2bytes(transmission.nextChunk, JMB_NUMBER_SIZE_FULLBYTES));
         
         const payload = [].concat(
-            Array.from(transmissionIdBytes),
+            Array.from(transmission.id),
             chunkIndexBytes, 
             dataBytes
         );
         const checksum = Array.from(this.getChecksum(new Uint8Array(payload)));
         
-        this.console.log("Send data chunk " + chunkIndex + ", " + (checksum.length + payload.length) + " bytes");
+        const isFile = JSON.stringify(Array.from(transmission.type)) == JSON.stringify(Array.from(JMB_TRANSMISSION_TYPE_FILE));
+
+        await this.onSendProgress({
+			path: transmission.path,
+			transmissionId: transmission.id,
+			chunk: transmission.nextChunk,
+			numChunks: transmission.amountChunks,
+            type: isFile ? "file" : "error"
+        });
+
+        this.console.log("Send data chunk " + transmission.nextChunk + ", " + (checksum.length + payload.length) + " bytes");
         
         await this.#sendSysex(
 			JMB_MANUFACTURER_ID,
@@ -456,6 +477,7 @@ class JsMidiBridge {
 				throw ex;
 			}
 
+            //console.error(ex)
             await this.error(ex.message);
 		}
 

@@ -15,20 +15,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>. 
  */
 
+BRIDGE_DEMO_VERSION = "0.1";
+
 class Demo {
 
-    #midi = null        // MIDIAccess object
-    #ui = null;         // User interface
-    routing = null;     // Routing
-    #bridge = null;     // Bridge instance
+    ui = null;              // User interface
+    routing = null;         // Routing
+    
+    #midi = null            // MIDI Bridge Handler (this manages the bridge instances)
+    #connection = null;     // Current connection, holding the bridge instance and ports etc.
 
-    #loadStartTime = 0; // Used to calculate the average loading time per byte for estimations
-
+    #loadStartTime = 0;     // Used to calculate the average loading time per byte for estimations
 
     constructor(ui) {        
-        this.#ui = ui;        
-
-        this.#ui.init(this);
+        this.ui = ui;        
+        this.ui.init(this);
     }
 
     /**
@@ -36,94 +37,224 @@ class Demo {
      */
     async run() {
         // Build DOM
-        this.#ui.build();        
+        this.ui.build();        
 
-        // MIDI bridge handler
-        this.#midi = new MidiBridgeHandler();
-        this.#midi.console = this.#ui.console;
-
-        // Router
-        this.routing = new Routing(this);
-
-        // Initialize bridge.
         try {
+            // Routing handler
+            this.routing = new Routing(this);
+
+            // MIDI bridge handler
+            this.#midi = new MidiBridgeHandler();
+            this.#midi.console = this.ui.console;
+
+            // Initialize MIDI
             await this.#midi.init();
+            this.ui.console.log("MIDI ready");
 
-            const that = this;
-            await this.#midi.scan(function(data) {
-                if (that.#bridge) return;   // Already connected
+            // Run routing
+            this.routing.run();
 
-                that.#initConnection(data.bridge, data.output.name);
-
-                that.routing.run();
-            });
-
-            
         } catch (e) {
-            this.#ui.console.error(e);
+            this.ui.console.error(e);
         }        
     }
 
     /**
      * Loads and shows the given path. Called by routing.
      */
-    open(path) {
-        this.#ui.showPath(path);
-        this.#ui.showContent("Loading " + path + "...");
+    async scan() {
+        try {
+            // No port: Scan for ports (will redirect to the first available bridge)
+            this.ui.showPath("");
+            this.ui.listing.clear();
+            this.ui.listing.message([
+                "JsMidiBridge Demo v" + BRIDGE_DEMO_VERSION,
+                "",
+                "---------------------------------------------------------------------------------------------",
+                "",
+                "JsMidiBridge is a library to edit files via MIDI.",
+                "",
+                "This program will now attempt to scan all available MIDI ports for instances of itself",
+                "(or a compatible port) and redirect to the first available device's root folder.",
+                "",
+                "It serves as working demonstration and/or development tool to create online editors etc.,",
+                "for example for CircuitPython based devices.",
+                "",
+                "---------------------------------------------------------------------------------------------",
+                "",
+                "(C) Thomas Weber 2024 tom-vibrant@gmx.de",
+                "Licensed under GPL v3"
+            ].join("\n"));
 
-        this.#bridge.request(path, BRIDGE_CHUNK_SIZE);
+            this.ui.console.log("Scanning ports...");
+
+            // Scan and open root folder of first found bridge.
+            await this.#scanAndOpenFirst();
+            
+        } catch (e) {
+            this.ui.console.error(e);
+        }    
+    }
+
+    /**
+     * Show ports overview
+     */
+    async showPorts() {
+        if (this.#connection) {
+            this.#midi.detach(this.#connection);
+            this.#connection = null;
+        }        
+        
+        try {
+            this.ui.showPath("");
+            this.ui.listing.clear();
+            this.ui.listing.message("Available ports with a compatible bridge behind it:");
+            this.ui.listing.message("");
+            
+            const that = this;
+            await this.#midi.scan(function(data) {
+                that.ui.listing.showPort(data);
+            });
+            
+        } catch (e) {
+            this.ui.console.error(e);
+        }    
+    }
+
+    /**
+     * Loads and shows the given path. Called by routing. This is used for both file content
+     * and folder listings, as these are treated equally by the briidge, too.
+     */
+    async open(portName, path) {
+        try {
+            // Connect if not yet done
+            await this.#connect(portName);
+            
+            if (path.length == 0 || path[0] != "/") {
+                path = "/" + path;
+            }
+
+            this.ui.showPath(path);            
+            this.ui.listing.clear();
+            this.ui.listing.message("Loading " + portName + path + "...");
+
+            // Request the data
+            await this.#connection.bridge.request(path, BRIDGE_CHUNK_SIZE_REQUEST);
+
+        } catch (e) {
+            this.ui.console.error(e);
+        }    
     }
 
     /**
      * Called by the UI to save the passed content.
      */
     async save(path, content) {
-        await this.#bridge.sendString(path, content, 60);
+        if (!confirm("Do you want to save " + path + "?")) return;
+        
+        try {
+            this.ui.console.log("Writing " + this.portName() + path);
+
+            await this.#connection.bridge.sendString(path, content, BRIDGE_CHUNK_SIZE_SEND);
+
+        } catch (e) {
+            this.ui.console.error(e);
+        }  
+    }
+
+    /**
+     * Returns the current connected port name.
+     */
+    portName() {
+        if (!this.#connection) return "";
+        return this.#connection.name;
+    }
+
+    /**
+     * Returns a href for the passed path on the current port
+     */
+    getContentUrl(portName, path) {
+        if (!portName) portName = this.portName();
+        return encodeURI("content/" + portName + path);
+    }
+
+    /**
+     * Scan ports and open the first one
+     */
+    async #scanAndOpenFirst() {
+        const that = this;
+        await this.#midi.scan(function(data) {
+            setTimeout(function() {
+                that.routing.call(that.getContentUrl(data.name, "/"));
+            }, 0);
+            return true
+        });
     }
 
     /**
      * Set up the passed bridge. 
      */
-    #initConnection(bridge, connectionName) {
+    async #connect(connectionName) {
+        if (this.#connection && this.#connection.name == connectionName) return;   // Already connected to the bridge
+        
+        if (this.#connection) {
+            this.#midi.detach(this.#connection);
+        }
+
+        const connection = await this.#midi.connect(connectionName);
+        const bridge = connection.bridge;
+
         const that = this;
 
-        this.#ui.console.log("Connected to " + connectionName);
+        this.ui.console.log("Connected to " + connectionName);
+
+        // Progress (send)
+        bridge.onSendProgress = async function(data) {            
+            if (data.type == "error") return;
+
+            that.ui.progress((data.chunk + 1) / data.numChunks, "Writing chunk " + data.chunk + " of " + data.numChunks);
+
+            if (data.chunk + 1 == data.numChunks) {
+                that.ui.console.info("Successfully saved " + data.path);
+            }
+        };
 
         // Receive start
         bridge.onReceiveStart = async function(data) {
             that.#loadStartTime = Date.now();
 
-            that.#ui.showPath(data.path);
-            that.#ui.progress(0, "Loading " + data.path);
+            that.ui.showPath(data.path);
+            that.ui.progress(0, "Loading " + data.path);
         };
 
-        // Progress
+        // Progress (receive)
         bridge.onReceiveProgress = async function(data) {
-            that.#ui.progress((data.chunk + 1) / data.numChunks, "Loading chunk " + data.chunk + " of " + data.numChunks);
+            that.ui.progress((data.chunk + 1) / data.numChunks, "Loading chunk " + data.chunk + " of " + data.numChunks);
         };
 
         // Receive finish
         bridge.onReceiveFinish = async function(data) {
             const timeMillis = Date.now() - that.#loadStartTime;
-            that.#ui.setLoadTime(timeMillis / data.data.length);
+            that.ui.setLoadTime(timeMillis / data.data.length);
 
-            that.#ui.showContent(data.data);
-            that.#ui.progress(1);
-            
-            that.#ui.console.log("Loaded " + data.path + " (took " + Tools.formatTime(timeMillis) + ")");
+            that.#onReceiveFinish(data, timeMillis);
         };
-
-        // Acknowledged successful transfer to the client
-        bridge.onReceiveAck = async function(data) {
-            that.#ui.console.log("Successfully saved file");
-            that.#ui.resetDirtyState();
-        }
 
         // Error handling for MIDI errors coming from the bridge
         bridge.onError = async function(message) {
-            that.#ui.console.error(message);
-        }
+            that.ui.console.error(message);
+        }      
+        
+        this.#connection = connection;
+    }
 
-        this.#bridge = bridge;
+    /**
+     * Called by #connect when finished
+     */
+    #onReceiveFinish(data, timeMillis) {
+        this.ui.showContent(data.data);
+        this.ui.progress(1);
+        
+        this.ui.console.info("Loaded " + this.portName() + data.path + " (took " + Tools.formatTime(timeMillis) + ")");
     }
 }

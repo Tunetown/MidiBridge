@@ -22,13 +22,14 @@ class DemoUserInterface {
     #app = null;                    // app reference
 
     #editor = null;                 // Instance of DemoEditor
-    #listing = null;                // Instance of DemoFolderListing
     
     #block = null;                  // Block element (background for progress bar)
     #progressBar = null;            // Progress bar inner element (the one to resize)
+    #progressMessage = null;        // Messages for progress
 
     #saveButton = null;
 
+    listing = null;                 // Instance of DemoListing
     console = null;                 // Instance of DemoConsole
 
     constructor(containerElement) {
@@ -46,7 +47,7 @@ class DemoUserInterface {
         const that = this;
 
         let editorElement = null;
-        let folderListingElement = null;
+        let listingElement = null;
         let consoleElement = null;
 
         this.#containerElement.append(
@@ -56,33 +57,36 @@ class DemoUserInterface {
                     this.#pathInput = $('<input name="pathInput" type="text" />')
                     .keypress(function (e) {
                         if (e.which == 13) {
-                            that.#app.routing.callPath(this.value);
+                            that.#app.routing.call(that.#app.getContentUrl(null, this.value));
                         }
                     })
                 ),
                 $('<div class="buttons" />').append(
                     this.#saveButton = $('<div class="fa fa-save" />')
                     .on("click", function(event) {
-                        that.#save();
+                        const content = that.#editor.getContent();
+                        that.#app.save(that.#pathInput.val(), content);
                     })
                 )
             ),
 
             // Content
             $('<div class="contentArea"/>').append(
-                folderListingElement = $('<div class="folderListing"/>').text("Connecting, please wait..."),
+                listingElement = $('<div class="listing"/>'),
 
                 // Editor
                 editorElement = $('<div class="editor"/>'),
 
+                // Progress bar and blocker
                 this.#block = $('<div class="block"/>').append(
-                        $('<div class="progressBarOuterContainer" />').append(
-                        $('<span class="progressBarContainer" />').append(
-                            $('<div class="progressBarBack" />').append(
-                                this.#progressBar = $('<div class="progressBar" />')
+                    $('<span class="progressBar" />').append(   // progressBarOuterContainer
+                        $('<span />').append(  //progressBarContainer
+                            $('<span />').append(   // progressBarBack
+                                this.#progressBar = $('<span />')  // progressBar
                             )
-                        )
-                    )
+                        ),                        
+                    ),
+                    this.#progressMessage = $('<span class="progressMessage" />')
                 ).hide()
             ),
 
@@ -90,21 +94,13 @@ class DemoUserInterface {
             consoleElement = $('<div class="console"/>')
         )
 
-        this.#editor = new DemoEditor(editorElement, this);
-        this.#listing = new DemoFolderListing(folderListingElement);
+        this.#editor = new DemoEditor(this, editorElement);
+        this.listing = new DemoListing(this.#app, listingElement);
         this.console = new DemoConsole(consoleElement);
 
         this.#editor.hide();
     }
     
-    /**
-     * Trigger saving
-     */
-    async #save() {
-        const content = this.#editor.getContent();
-        await this.#app.save(this.#pathInput.val(), content);
-    }
-
     /**
      * Shows the passed path
      */
@@ -116,7 +112,7 @@ class DemoUserInterface {
      * Show the passed content
      */
     showContent(content) {
-        if (this.#listing.show(this.#pathInput.val(), content)) {
+        if (this.listing.tryToShowFolderListing(this.#pathInput.val(), content)) {
             this.#editor.hide();
         } else {
             this.#editor.show();
@@ -141,6 +137,7 @@ class DemoUserInterface {
         const perc = (percentage * 100).toFixed(2);  
 		
 		this.#progressBar.css('width', perc + '%');		
+        this.#progressMessage.text(message);
 
         this.#block.show();
     }
@@ -149,7 +146,7 @@ class DemoUserInterface {
      * Call this with statistics to estimate load times.
      */
     setLoadTime(millisPerByte) {
-        this.#listing.setLoadTime(millisPerByte);
+        this.listing.setLoadTime(millisPerByte);
     }
 
     /**
