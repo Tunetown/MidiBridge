@@ -32,17 +32,49 @@ class DemoEditor {
      * Create the editor instance
      */
     #setupEditor() {
-		this.#editor = CodeMirror(this.#editorElement[0], {
-			mode: "python",
-            lineNumbers: true
-		});
-
         const that = this;
 
-        this.#editor.on('change', function(/*obj*/) {
-			that.#setDirty();			
+        // Editor
+		this.#editor = CodeMirror(this.#editorElement[0], {
+			mode: "python",
+            gutters: ["CodeMirror-lint-markers"],
+            lineNumbers: true,
+            lint: {
+                getAnnotations: function(source/*, options, editor*/) {                    
+                    return (new DemoLinter()).getAnnotations(source);
+                },
+                highlightLines: true
+            }
 		});
+
+        // Set dirty on change (shows the save button)
+        this.#editor.on('change', function(/*obj*/) {
+			that.#setDirty();
+		});
+
+        this.#initGlobalShortcuts();
     }
+
+    /**
+	 * Global key shortcuts
+	 */
+	#initGlobalShortcuts() {
+		const that = this;
+		
+		// CTRL-S key to save
+		$(window).on('keydown', async function(event) {
+		    if (event.ctrlKey || event.metaKey) {
+		        switch (String.fromCharCode(event.which).toLowerCase()) {
+                    case 's':
+                        event.preventDefault();
+                        
+                        that.#ui.save();
+                        
+                        break;		        
+		        }
+		    }
+		});
+	}
 
     #setDirty() {
         this.#ui.setDirty();

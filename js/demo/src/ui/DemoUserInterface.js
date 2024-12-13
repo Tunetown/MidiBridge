@@ -101,6 +101,16 @@ class DemoUserInterface {
 
         this.#editor.hide();
     }
+
+    /**
+     * Trigger saving the current content
+     */
+    async save() {
+        const content = this.#editor.getContent();
+        const path = this.#pathInput.val();
+
+        await this.#app.save(path, content);
+    }
     
     /**
      * Shows the passed path
