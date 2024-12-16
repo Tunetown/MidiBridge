@@ -7,9 +7,10 @@ from .mocks import *
 
 with patch.dict(sys.modules, {
     "time": MockTime,
-    "os": MockOs
+    "os": MockOs,
+    "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
 }):
-    from lib.pymidibridge.MidiBridgeStorageProvider import MidiBridgeStorageProvider
+    from lib.pymidibridge.MidiBridgeWrapper import MidiBridgeStorageProvider
 
 
 class TestMidiBridgeStorageProvider(unittest.TestCase):

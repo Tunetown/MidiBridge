@@ -28,7 +28,6 @@ print("Listening to MIDI bridge messages...")
 
 # Here, the message loop is implemented directly. You will normally have this loop inside your script.
 try:
-    import time
     # Receive MIDI messages. The wrapper will pass the stuff to the MIDI bridge.
     while True:
         midi_message = wrapper.receive()

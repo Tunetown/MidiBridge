@@ -4,12 +4,13 @@
 # use this in your application just like the adafruit handler, and the MIDI bridge will be able to
 # communicate (as long as your application calls receive() regularily of course).
 
+import json
+from os import stat, rename, listdir
 from time import sleep
 import traceback
-from adafruit_midi.system_exclusive import SystemExclusive
 
+from adafruit_midi.system_exclusive import SystemExclusive
 from .PyMidiBridge import PyMidiBridge
-from.MidiBridgeStorageProvider import MidiBridgeStorageProvider
 
 
 # This passes all MIDI through to/from the passed MIDI handler, plus the PyMidiBridge is 
@@ -73,8 +74,6 @@ class MidiBridgeWrapper:
         self._bridge.error(message)
 
         # Initiate a simple transmission loop to enable receiving files
-        print("Listening to bridge messages...")
-
         while True:
             self.receive()
 
@@ -93,7 +92,7 @@ class MidiBridgeWrapper:
 
     # Called when the bridge received an error message
     def handle(self, message):
-        print("MIDI Bridge error received: " + repr(message))
+        print(repr(message))
 
     # Called when the bridge received notice about a finished transfer on the other side
     def transfer_finished(self, file_id_bytes):
@@ -104,4 +103,116 @@ class MidiBridgeWrapper:
     # Returns the trace of an exception
     def get_trace(self, exception):        
         return str(traceback.format_exception(None, exception, exception.__traceback__))
+
+
+#########################################################################################################
+
+
+# Access to storage (used by the bridge). Note that the storage must be mounted with write privileges
+# if the write functionality should work, else an exception is raised.
+class MidiBridgeStorageProvider:
+
+    # You have to provide a path for a temporary file, used to buffer contents before transmission finished.
+    def __init__(self, temp_file_path):
+        self._temp_file_path = temp_file_path
+        
+
+    # Must return file size. In case of directories, we return the size of the string to be sent.
+    def size(self, path):
+        try:
+            if self._is_dir(path):
+                return len(self._get_folder_listing(path))
+            
+            return stat(path)[6]
+        
+        except OSError as e:
+            if e.errno == 2:
+                return -1
+            raise e
+    
+
+    # Must return an opened file handle
+    def open(self, path, mode):
+        class _Handle:
+            pass
+
+        handle = _Handle()
+
+        if mode == "a":
+            # Write a file:            
+            # Clear before appending
+            open(self._temp_file_path, "w").close()
+            
+            # Data is first stored into a temporary file path, then copied to the destination when finished.
+            file = open(self._temp_file_path, "a")
+
+            def write(data):
+                file.write(data)
+
+            # Must close the file handle
+            def close():
+                file.close()
+                
+                # Copy temp file to its destination
+                rename(self._temp_file_path, path)
+
+                #print("Successfully saved " + path)
+
+            handle.write = write
+            handle.close = close
+
+            return handle                        
+
+        elif mode == "r":
+            if self._is_dir(path):
+                handle.listing = self._get_folder_listing(path)
+                
+                def read(amount_bytes):
+                    ret = handle.listing[:amount_bytes]
+                    handle.listing = handle.listing[amount_bytes:]
+                    return ret
+                
+                def close():
+                    pass
+
+                handle.read = read
+                handle.close = close
+
+                return handle
+            else:
+                file = open(path, "r")
+
+                def read(amount_bytes):
+                    return file.read(amount_bytes)
+
+                def close():
+                    file.close()
+
+                handle.read = read
+                handle.close = close
+
+                return handle
+
+
+    # Is path a folder?
+    def _is_dir(self, path):
+        return stat(path)[0] == 16384
+    
+    
+    # Returns the string for folder listings.
+    def _get_folder_listing(self, path):
+        if not path[-1] == "/":
+            path += "/"
+
+        data = []
+        for file in listdir(path):
+            stats = stat(path + file)
+
+            data.append([
+                file,
+                stats[0] == 16384,
+                stats[6]
+            ])
+            
+        return json.dumps(data)
 

@@ -9,7 +9,7 @@ with patch.dict(sys.modules, {
     "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
 }):
     from adafruit_midi.system_exclusive import SystemExclusive    
-    from lib.pymidibridge.MidiBridgeWrapper import *
+    from lib.pymidibridge.MidiBridgeWrapper import MidiBridgeWrapper
 
 
 class TestWrapper(unittest.TestCase):
