@@ -1,12 +1,12 @@
 # MidiBridge
 
-This project provides an algorithm to transfer files (or other data) between Python and JavaScript via MIDI SystemExclusive messages. It has been developed to read/write configuration files on CircuitPython or MicroPython devices like the PaintAudio MIDICaptain MIDI controllers (which are based on a Raspberry Pi Pico board) from the browser using the Web MIDI API, without needing to mount its USB drive.
+This project provides an algorithm to transfer files (or other data) between Python and JavaScript via MIDI SystemExclusive messages. It has been developed to read/write configuration files on <a href="https://circuitpython.org/" target="_blank">CircuitPython</a> or <a href="https://micropython.org/" target="_blank">MicroPython</a> devices like the PaintAudio MIDICaptain MIDI controllers (which are based on a <a href="https://www.raspberrypi.com/products/raspberry-pi-pico/" target="_blank">Raspberry Pi Pico</a> board) from the browser using the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API" target="_blank">Web MIDI API</a>, without needing to mount its USB drive.
 
-The core algorithm is ported 1:1 to genuine Python 3 and EC6 JavaScript, based on comprehensive unit tests which rely on reference data to ensure bit compatibility between the two platforms.
+The core algorithm is ported 1:1 to genuine Python 3 and ES6 JavaScript, based on comprehensive unit tests which rely on reference data to ensure bit compatibility between the two platforms.
 
 The algorithm is embedded in two demo applications which are also part of this project:
 - A CircuitPython example running the bridge on microcontroller boards, and showing hao to embed the bridge into any other code,
-- A browser demo (static HTML/CSS/JS) which can communicate with the python example and read/write file on it in the browser. This can be used as basis for developing more enhanced tools based on this project, for example to visually configure MIDI Controllers running PySwitch.
+- A <a href="https://pyswitch.tunetown.de" target="_blank">browser demo</a> (purely static HTML/CSS/JS) which can communicate with the python code and read/write file on the device via the browser. This can be used as basis for developing more enhanced tools based on this project, for example to visually configure MIDI Controllers running PySwitch.
 
 ## Dependencies
 
@@ -16,7 +16,7 @@ No dependencies, except Docker for running the unit tests.
 
 ### JavaScript
 
-A browser supporting the Web MIDI API (tested with Chrome). 
+A browser supporting the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API" target="_blank">Web MIDI API</a> (tested with Chrome only). 
 
 *NOTE: For iOS, there seems to exist a "Web MIDI Browser" which emulates the API, but this is untested.*
 
@@ -262,9 +262,11 @@ To install the demo on any web server:
 
 To run locally, the docker container used for unit testing (see below) also mounts everything needed for the demo under http://localhost/demo for you.
 
+<a href="https://pyswitch.tunetown.de" target="_blank">Link to the Live Demo</a>
+
 #### Unit Tests
 
-The JS test suite is built using Jasmine 5.5.0 standalone edition. There is a docker container hosting an apache2 server which runs the tests, with access to all reference data etc.
+The JS test suite is built using <a href="https://github.com/jasmine/jasmine/releases" target="_blank">Jasmine 5.5.0 standalone edition</a>. There is a docker container hosting an Apache 2 server which runs the tests, with access to all reference data etc.
 
 ```console
 cd js/test
