@@ -22,7 +22,7 @@ A browser supporting the <a href="https://developer.mozilla.org/en-US/docs/Web/A
 
 ## Protocol
 
-This sequence diagram shows how a string of data is transmitted:
+This sequence diagram shows how a string of data is transmitted. A and B are both instances of the bridge implementation (PyMidiBridge.py or JsMidiBridge.js):
 
 ```mermaid
 sequenceDiagram    
@@ -48,7 +48,7 @@ sequenceDiagram
     deactivate A
 ```
 
-The PyMidiBridge.py and PyMidiBridge.js files contain detailed info about the exact composition for each message. All received data is checked using a CRC16 implementation. The encoding uses UTF-8 encoded strings internally.
+The python/lib/pymidibridge/PyMidiBridge.py and js/src/PyMidiBridge.js files contain detailed info about the exact composition for each message. All received data is checked using a CRC16 implementation. The encoding uses UTF-8 encoded strings internally.
 
 MIDI SysEx can only transmit 7 bits per byte, so the UTF-8 bytes are packed into what is there by shifting the bytes.
 
@@ -134,16 +134,16 @@ Folder contents are delivered as JSON strings containing an array, for example:
 ```json
 [
     [
-        "code.py",    // Name of file
-        false,        // Is it a folder?
-        455           // Size in bytes
+        "code.py",    /* Name of file */
+        false,        /* Is it a folder? */
+        455           /* Size in bytes */
     ],
     [
         "lib",
         true,
         0
     ],
-    //...
+    /* ... */
 ]
 ```
 
