@@ -133,6 +133,7 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(len(storage_receive.created_handles), 1)
         self.assertEqual(storage_receive.created_handles[0].path, path)
         self.assertEqual(storage_receive.created_handles[0].mode, "a")
+        self.assertEqual(storage_receive.created_handles[0].closed, True)
 
         # Compare results
         self.assertEqual(storage_receive.created_handles[0].write_contents, data)
