@@ -6,7 +6,7 @@ The core algorithm is ported 1:1 to genuine Python 3 and ES6 JavaScript, based o
 
 The algorithm is embedded in two demo applications which are also part of this project:
 - A CircuitPython example running the bridge on microcontroller boards, and showing hao to embed the bridge into any other code,
-- A <a href="https://pyswitch.tunetown.de" target="_blank">browser demo</a> (purely static HTML/CSS/JS) which can communicate with the python code and read/write file on the device via the browser. This can be used as basis for developing more enhanced tools based on this project, for example to visually configure MIDI Controllers running PySwitch.
+- A <a href="https://demo.midibridge.tunetown.de" target="_blank">browser demo</a> (purely static HTML/CSS/JS) which can communicate with the python code and read/write file on the device via the browser. This can be used as basis for developing more enhanced tools based on this project, for example to visually configure MIDI Controllers running PySwitch.
 
 ## Dependencies
 
@@ -262,7 +262,7 @@ To install the demo on any web server:
 
 To run locally, the docker container used for unit testing (see below) also mounts everything needed for the demo under http://localhost/demo for you.
 
-<a href="https://pyswitch.tunetown.de" target="_blank">Link to the Live Demo</a>
+<a href="https://demo.midibridge.tunetown.de" target="_blank">Link to the Live Demo</a>
 
 #### Unit Tests
 
