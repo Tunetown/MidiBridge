@@ -17,7 +17,7 @@ from.MidiBridgeStorageProvider import MidiBridgeStorageProvider
 class MidiBridgeWrapper:
     def __init__(self, 
                  midi, 
-                 temp_file_path, 
+                 temp_file_path = None, 
                  storage_provider = None, 
                 #  debug = False
         ):

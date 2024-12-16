@@ -1,11 +1,42 @@
 import traceback 
 
+class MockOs:
+    stat_outputs = {}
+    stat_exception = None
+    rename_calls = []
+    listdir_outputs = {}
+
+    def stat(path):
+        if MockOs.stat_exception:
+            raise MockOs.stat_exception
+        
+        if path in MockOs.stat_outputs:
+            return MockOs.stat_outputs[path]
+        
+        raise Exception()
+        
+    def rename(src, tar):
+        MockOs.rename_calls.append({
+            "source": src,
+            "target": tar
+        })
+
+    def listdir(path):
+        if path in MockOs.listdir_outputs:
+            return MockOs.listdir_outputs[path]
+        
+        raise Exception()
+
 
 class MockTime:
     monotonic_return = 0
+    sleep_calls = []
 
     def monotonic():
         return MockTime.monotonic_return
+    
+    def sleep(amount):
+        MockTime.sleep_calls.append(amount)
 
 
 class MockSystemExclusiveMessage:
@@ -121,3 +152,36 @@ class MockEventHandler:
     def get_trace(self, exception):
         return "\n".join(traceback.format_exception(None, exception, exception.__traceback__))
     
+
+class MockMidiController:
+    def __init__(self):
+        self.messages_sent = []
+        self.next_receive_messages = []
+
+    def receive(self):
+        if self.next_receive_messages:
+            return self.next_receive_messages.pop(0)
+        
+        return None
+    
+    def send(self, midi_message):
+        self.messages_sent.append(midi_message)
+
+
+class MockAdafruitMIDISystemExclusive:    
+    class SystemExclusive:
+        def __init__(self, manufacturer_id = [0x00, 0x00, 0x00], data = []):
+            self.manufacturer_id = manufacturer_id
+            self.data = data
+
+
+class MockBridge:
+    def __init__(self):
+        self.receive_calls = []
+        self.receive_outputs = {}
+
+    def receive(self, msg):
+        self.receive_calls.append(msg)
+
+        if msg in self.receive_outputs:
+            return self.receive_outputs[msg]
