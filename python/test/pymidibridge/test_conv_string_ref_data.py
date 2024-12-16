@@ -1,10 +1,16 @@
+import sys
 import unittest
-import json
+from unittest.mock import patch   # Necessary workaround! Needs to be separated.
 from os import path
+import json
 
 from .mocks import *
-from lib.pymidibridge.PyMidiBridge import *
-    
+
+with patch.dict(sys.modules, {
+    "time": MockTime
+}):
+    from lib.pymidibridge.PyMidiBridge import *
+
 
 TEST_DATA_FOLDER = "/project/test/data/"
 

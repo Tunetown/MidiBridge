@@ -384,7 +384,7 @@ class TestProtocol {
         // Data message of another transmission
         await bridgeReceive.receive(messagesSent2.pop())
 
-        await this.#evaluateError(bridgeSend, messagesSentReceive, ["Transmission", "not found"]);
+        await this.#evaluateError(bridgeSend, messagesSentReceive, ["transmission", "not found"]);
     }
 
     async testReceiveInvalidChunk() {

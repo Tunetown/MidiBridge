@@ -5,9 +5,7 @@
 # communicate (as long as your application calls receive() regularily of course).
 
 from time import sleep
-import json
 import traceback
-from os import stat, rename, listdir
 from adafruit_midi.system_exclusive import SystemExclusive
 
 from .PyMidiBridge import PyMidiBridge
@@ -17,7 +15,12 @@ from.MidiBridgeStorageProvider import MidiBridgeStorageProvider
 # This passes all MIDI through to/from the passed MIDI handler, plus the PyMidiBridge is 
 # listening for commands to read/change the configuration files via SysEx.
 class MidiBridgeWrapper:
-    def __init__(self, midi, temp_file_path, storage_provider = None, debug = False):
+    def __init__(self, 
+                 midi, 
+                 temp_file_path, 
+                 storage_provider = None, 
+                #  debug = False
+        ):
         self._midi = midi
 
         # Storage wrapper to the filesystem
@@ -31,10 +34,10 @@ class MidiBridgeWrapper:
             storage = storage_provider,
             midi = self,                         # The bridge calls send_system_exclusive to send its data
             event_handler = self,                # handle errors and messages here directly 
-            debug = debug
+            # debug = debug
         )
 
-        self._debug = debug
+        # self._debug = debug
 
     # Called to send messages (this is directly forwarded to the MIDI handler)
     def send(self, midi_message):
@@ -49,7 +52,7 @@ class MidiBridgeWrapper:
             if self._bridge.receive(msg):
                 # Message handled by the bridge.
 
-                # It is important to have at least 10ms of time between the MIDI receive calls,
+                # It is important to have some time between the MIDI receive calls,
                 # else SysEx messages will not come in completely and will be parsed as unknown events
                 # because the end status is not reached. We assume that after a bridge related message
                 # has been parsed, there will come more, so we wait here, not interfering with your normal
@@ -57,7 +60,7 @@ class MidiBridgeWrapper:
                 sleep(0.01)
 
                 return None
-
+            
         return msg
     
     # Sends the passed error message via MIDI and keeps receiving messages forever 
@@ -73,10 +76,7 @@ class MidiBridgeWrapper:
         print("Listening to bridge messages...")
 
         while True:
-            msg = self._midi.receive()
-        
-            if msg:
-                self._bridge.receive(msg)                
+            self.receive()
 
 
     ## Callbacks ###################################################################################
@@ -97,8 +97,9 @@ class MidiBridgeWrapper:
 
     # Called when the bridge received notice about a finished transfer on the other side
     def transfer_finished(self, file_id_bytes):
-        if self._debug:
-            print("Transfer finished: " + repr(file_id_bytes))
+        pass
+        # if self._debug:
+        #     print("Transfer finished: " + repr(file_id_bytes))
 
     # Returns the trace of an exception
     def get_trace(self, exception):        

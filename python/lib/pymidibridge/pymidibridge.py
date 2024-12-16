@@ -4,13 +4,14 @@
 #
 ###################################################################################################################
 
+from time import monotonic
 from math import ceil
 from random import randint
 
 ####################################################################################################################
  
 # Bridge version
-PMB_VERSION = "0.5.0"
+PMB_VERSION = "0.5.1"
 
 # Manufacturer ID of PyMidiBridge
 PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
@@ -93,9 +94,17 @@ _PMB_STRING_ENCODING = "utf-8"
 # Chunk size for sending errors. Keep this small to be compatible to all clients.
 _PMB_ERROR_CHUNK_SIZE = 100
 
+# Timout for inactive transmissions (milliseconds)
+_PMB_TIMEOUT_MILLIS = 5000
+
 
 ####################################################################################################################
-    
+
+
+# Transmission key prefixes for indexing the transmissions buffer internally.
+_PMB_TRANSMISSION_KEY_SEND = b'\x00'
+_PMB_TRANSMISSION_KEY_RECEIVE = b'\x01'
+
 
 # Use an instance of this to use the functionality.
 class PyMidiBridge:
@@ -103,22 +112,24 @@ class PyMidiBridge:
     # Next transmission ID
     _NEXT_ID = None  
 
-    # midi_send:        Object to send SystemExclusive messages. See MidiSender.
-    # storage:          Object to interact with storage. See StorageProvider.
+    # midi_send:        Object to send SystemExclusive messages. See MidiSender definition below.
+    # storage:          Object to interact with storage. See StorageProvider definition below.
     # event_handler:    Optional event handler, used to handle incoming errors as well as other stuff. 
     #                   See EventHaldler definition below. 
     #
-    def __init__(self, midi, storage = None, event_handler = None, debug = False):
+    def __init__(self, 
+                 midi, 
+                 storage = None, 
+                 event_handler = None, 
+                #  debug = False
+        ):
         self._midi = midi
         self._storage = storage
         self._event_handler = event_handler
-        self._debug = debug
+        # self._debug = debug
 
-        # Transmission dict of dicts (for receiving stuff). Keys are the transmission IDs.
-        self._receive_transmissions = {}
-
-        # Transmission dict of dicts (for sending stuff). Keys are the transmission IDs.
-        self._send_transmissions = {}
+        # Transmission dict of dicts. Keys are 0x00 or 0x01 (send or receive) plus the transmission ID bytes.
+        self._transmissions = {}
 
 
     ## Send Messages ##########################################################################################################
@@ -148,7 +159,6 @@ class PyMidiBridge:
             "path": path,
             "amountChunks": ceil(data_size / chunk_size),
             "chunkSize": chunk_size,
-            "id": self._generate_transmission_id(),
             "type": _PMB_TRANSMISSION_TYPE_FILE
         })
         
@@ -166,7 +176,6 @@ class PyMidiBridge:
             "path": path,
             "amountChunks": ceil(len(message) / chunk_size),
             "chunkSize": chunk_size,
-            "id": self._generate_transmission_id(),
             "message": message,
             "type": transmission_type
         })      
@@ -175,12 +184,14 @@ class PyMidiBridge:
     # Adds a send transmission definition and sends the start message
     def _start_send_transmission(self, transmission):
         transmission["nextChunk"] = 0
+        transmission["id"] = self._generate_transmission_id()
 
-        self._send_transmissions[transmission["id"]] = transmission
+        self._cleanup_transmissions()
+        self._transmissions[_PMB_TRANSMISSION_KEY_SEND + transmission["id"]] = transmission
 
-        if self._debug:
-            print("Start sending " + repr(transmission))
-            print("Number of send transmissions: " + repr(len(self._send_transmissions)))
+        # if self._debug:
+        #     print("Start sending " + repr(transmission))
+        #     print("Number of transmissions: " + repr(len(self._transmissions)))
 
         # Send start message and first chunk
         self._send_start_message(transmission)
@@ -205,6 +216,9 @@ class PyMidiBridge:
         self._send_chunk(transmission, chunk)
 
         transmission["nextChunk"] += 1
+
+        # Update timestamp
+        transmission["time"] = int(monotonic() * 1000)
 
         if transmission["nextChunk"] == transmission["amountChunks"]:
             if transmission["type"] == _PMB_TRANSMISSION_TYPE_FILE:
@@ -236,8 +250,8 @@ class PyMidiBridge:
         payload = transmission["id"] + transmission["type"] + amount_chunks_bytes + self._string_2_bytes(transmission["path"])
         checksum = self._get_checksum(payload)
         
-        if self._debug:
-            print("Send start message for " + repr(transmission))
+        # if self._debug:
+        #     print("Send start message for " + repr(transmission))
 
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
@@ -253,8 +267,8 @@ class PyMidiBridge:
         payload = transmission["id"] + chunk_index_bytes + data_bytes
         checksum = self._get_checksum(payload)
         
-        if self._debug:
-            print("Send data chunk " + repr(transmission["nextChunk"]))
+        # if self._debug:
+        #     print("Send data chunk " + repr(transmission["nextChunk"]))
 
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
@@ -366,19 +380,20 @@ class PyMidiBridge:
             # Initialize buffer
             transmission["buffer"] = ""
 
-        self._receive_transmissions[transmission_id_bytes] = transmission
+        self._cleanup_transmissions()
+        self._transmissions[_PMB_TRANSMISSION_KEY_RECEIVE + transmission_id_bytes] = transmission
 
-        if self._debug:
-            print("Start receiving " + repr(transmission))
-            print("Number of receive transmissions: " + repr(len(self._receive_transmissions)))
+        # if self._debug:
+        #     print("Start receiving " + repr(transmission))
+        #     print("Number of transmissions: " + repr(len(self._transmissions)))
 
 
     # Receive file data
     def _receive_data(self, transmission_id_bytes, payload):
-        if not transmission_id_bytes in self._receive_transmissions:
-            raise Exception("Transmission " + repr(transmission_id_bytes) + " not found")
+        if not _PMB_TRANSMISSION_KEY_RECEIVE + transmission_id_bytes in self._transmissions:
+            raise Exception("Receive transmission " + repr(transmission_id_bytes) + " not found")
         
-        transmission = self._receive_transmissions[transmission_id_bytes]
+        transmission = self._transmissions[_PMB_TRANSMISSION_KEY_RECEIVE + transmission_id_bytes]
 
         # Index of the chunk
         index = self._bytes_2_number(payload[:_PMB_NUMBER_SIZE_HALFBYTES])
@@ -401,13 +416,16 @@ class PyMidiBridge:
     
         # Send the ack message
         self._send_ack_message(transmission["id"], index)
-        
+
+        # Update timestamp
+        transmission["time"] = int(monotonic() * 1000)
+
         # If this has been the last chunk, close the file handle and send ack message
         if index == transmission["amountChunks"] - 1:
             self._receive_finish(transmission)
 
-        if self._debug:
-            print("Received chunk " + repr(index))
+        # if self._debug:
+        #     print("Received chunk " + repr(index))
 
 
     # Finish receiving and send acknowledge message
@@ -422,31 +440,30 @@ class PyMidiBridge:
                 self._event_handler.handle(transmission["buffer"])
 
         # Remove transmission from the receive list
-        del self._receive_transmissions[transmission["id"]]
+        del self._transmissions[_PMB_TRANSMISSION_KEY_RECEIVE + transmission["id"]]
 
-        if self._debug:
-            print("Finished receiving " + repr(transmission))
-            print("Number of receive transmissions: " + repr(len(self._receive_transmissions)))
-
+        # if self._debug:
+        #     print("Finished receiving " + repr(transmission))
+        #     print("Number of transmissions: " + repr(len(self._transmissions)))
 
 
     # Receive the chunk ack message
     def _receive_ack(self, transmission_id_bytes, payload):        
-        if not transmission_id_bytes in self._send_transmissions:
-            raise Exception("Transmission " + repr(transmission_id_bytes) + " not found")
+        if not _PMB_TRANSMISSION_KEY_SEND + transmission_id_bytes in self._transmissions:
+            raise Exception("Send transmission " + repr(transmission_id_bytes) + " not found")
         
-        transmission = self._send_transmissions[transmission_id_bytes]
+        transmission = self._transmissions[_PMB_TRANSMISSION_KEY_SEND + transmission_id_bytes]
 
         chunk_index = self._bytes_2_number(payload)
         if chunk_index != transmission["nextChunk"] - 1:
             raise Exception("Invalid ack chunk: " + repr(chunk_index))
 
         if transmission["nextChunk"] == transmission["amountChunks"]:
-            del self._send_transmissions[transmission_id_bytes]
+            del self._transmissions[_PMB_TRANSMISSION_KEY_SEND + transmission_id_bytes]
 
-            if self._debug:
-                print("Finish sending " + repr(transmission))
-                print("Number of send transmissions: " + repr(len(self._send_transmissions)))
+            # if self._debug:
+            #     print("Finish sending " + repr(transmission))
+            #     print("Number of transmissions: " + repr(len(self._transmissions)))
 
             if self._event_handler:
                 self._event_handler.transfer_finished(transmission_id_bytes)
@@ -459,8 +476,8 @@ class PyMidiBridge:
         payload = transmission_id_bytes + self._number_2_bytes(chunk_index, _PMB_NUMBER_SIZE_FULLBYTES)
         checksum = self._get_checksum(payload)
         
-        if self._debug:
-            print("Send ack message " + repr(chunk_index))            
+        # if self._debug:
+        #     print("Send ack message " + repr(chunk_index))            
 
         self._midi.send_system_exclusive(
             manufacturer_id = PMB_MANUFACTURER_ID,
@@ -476,6 +493,20 @@ class PyMidiBridge:
             chunk_size = chunk_size,
             transmission_type = _PMB_TRANSMISSION_TYPE_ERROR
         )
+
+
+    # Cleans up all transmissions which ran out of time
+    def _cleanup_transmissions(self):
+        for key, transmission in [t for t in self._transmissions.items()]:
+            if not "time" in transmission:
+                continue
+
+            if (int(monotonic() * 1000) - transmission["time"]) > _PMB_TIMEOUT_MILLIS:
+                # if self._debug:
+                #     print("Cleanup transmission " + repr(key))
+                    
+                # Timeout
+                del self._transmissions[key]
 
 
     ## Checksum ###########################################################################################################

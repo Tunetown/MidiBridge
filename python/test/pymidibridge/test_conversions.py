@@ -1,8 +1,14 @@
+import sys
 import unittest
+from unittest.mock import patch   # Necessary workaround! Needs to be separated.
 
 from .mocks import *
-from lib.pymidibridge.PyMidiBridge import *
-    
+
+with patch.dict(sys.modules, {
+    "time": MockTime
+}):
+    from lib.pymidibridge.PyMidiBridge import *
+
 
 class TestConversions(unittest.TestCase):
 

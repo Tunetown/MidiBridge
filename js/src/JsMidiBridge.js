@@ -23,7 +23,7 @@
 /**
  * Bridge version
  */
-const JMB_VERSION = "0.5.0";
+const JMB_VERSION = "0.5.1";
 
 /**
  * Manufacturer ID of JsMidiBridge
@@ -119,6 +119,11 @@ const JMB_CHECKSUM_LENGTH_HALFBYTES = 3;
  * Chunk size for sending errors. Keep this small to be compatible to all clients.
  */
 const JMB_ERROR_CHUNK_SIZE = 100;
+
+/**
+ * Timout for inactive transmissions (milliseconds)
+ */
+const JMB_TIMEOUT_MILLIS = 5000;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -238,7 +243,6 @@ class JsMidiBridge {
             path: path, 
             amountChunks: Math.ceil(data.length / chunkSize),
             chunkSize: chunkSize, 
-            id: this.generateTransmissionId(),
             message: data,
             type: JMB_TRANSMISSION_TYPE_FILE
         });
@@ -260,8 +264,7 @@ class JsMidiBridge {
         await this.#startSendTransmission({
             path: path, 
             amountChunks: Math.ceil(message.length / chunkSize),
-            chunkSize: chunkSize, 
-            id: this.generateTransmissionId(),
+            chunkSize: chunkSize,             
             message: message,
             type: transmission_type
         });
@@ -273,7 +276,9 @@ class JsMidiBridge {
      */
     async #startSendTransmission(transmission) {
         transmission.nextChunk = 0;
+        transmission.id = this.generateTransmissionId();
 
+        this.#cleanupTransmissions();
         this.#sendTransmissions.set(JSON.stringify(transmission.id), transmission);
 
         this.console.log("Start sending", transmission);
@@ -296,6 +301,9 @@ class JsMidiBridge {
         await this.#sendChunk(transmission, chunk);
 
         transmission.nextChunk += 1;
+
+        // Update timestamp
+        transmission.time = Date.now();
     }
     
 
@@ -510,6 +518,7 @@ class JsMidiBridge {
             buffer: ""
         };
 
+        this.#cleanupTransmissions();
         this.#receiveTransmissions.set(JSON.stringify(transmissionIdBytes), transmission);
                 
         // Signal start of transmission        
@@ -530,7 +539,7 @@ class JsMidiBridge {
     async #receiveData(transmissionIdBytes, payload) {   
         const transmission = this.#receiveTransmissions.get(JSON.stringify(transmissionIdBytes));
         if (!transmission) {
-            throw new Error("Transmission " + transmissionIdBytes + " not found");
+            throw new Error("Receive transmission " + transmissionIdBytes + " not found");
         }
 
         // Index of the chunk
@@ -552,6 +561,9 @@ class JsMidiBridge {
         // Send the ack message
         await this.#sendAckMessage(transmission.id, index);
             
+        // Update timestamp
+        transmission.time = Date.now();
+
         await this.onReceiveProgress({
 			path: transmission.path,
 			transmissionId: transmission.id,
@@ -608,7 +620,7 @@ class JsMidiBridge {
     async #receiveAck(transmissionIdBytes, payload) {
         const transmission = this.#sendTransmissions.get(JSON.stringify(transmissionIdBytes));
         if (!transmission) {
-            throw new Error("Transmission " + transmissionIdBytes + " not found");
+            throw new Error("Send transmission " + transmissionIdBytes + " not found");
         }
 
         const chunkIndex = this.bytes2number(payload);
@@ -687,6 +699,32 @@ class JsMidiBridge {
 		
 		return true;
 	}
+
+    /**
+     * Cleans up all transmissions which ran out of time
+     */
+    #cleanupTransmissions() {
+        this.#cleanupTransmissionsArray(this.#sendTransmissions);
+        this.#cleanupTransmissionsArray(this.#receiveTransmissions);
+    }
+
+    /**
+     * Clean up the passed transmissions array
+     */
+    #cleanupTransmissionsArray(transmissions) {
+        const that = this;
+
+        new Map(transmissions).forEach((transmission, key) => {
+            if (!transmission.hasOwnProperty("time")) return;
+
+            if (Date.now() - transmission.time > JMB_TIMEOUT_MILLIS) {
+                that.console.log("Cleanup transmission " + key);
+                // Timeout
+                transmissions.delete(key);
+            }
+        });
+    }
+
 
     // Checksum ###########################################################################################################
 

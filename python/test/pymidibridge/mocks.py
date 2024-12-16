@@ -1,6 +1,12 @@
 import traceback 
 
 
+class MockTime:
+    monotonic_return = 0
+
+    def monotonic():
+        return MockTime.monotonic_return
+
 
 class MockSystemExclusiveMessage:
     def __init__(self, manufacturer_id = bytes([]), data = bytes([])):

@@ -1,8 +1,14 @@
+import sys
 import unittest
+from unittest.mock import patch   # Necessary workaround! Needs to be separated.
 
 from .mocks import *
-from lib.pymidibridge.PyMidiBridge import *
-    
+
+with patch.dict(sys.modules, {
+    "time": MockTime
+}):
+    from lib.pymidibridge.PyMidiBridge import *
+
 
 class TestProtocol(unittest.TestCase):
 
@@ -306,7 +312,7 @@ class TestProtocol(unittest.TestCase):
         # Data message of another transmission
         bridge_receive.receive(midi_send_2.messages_sent.pop())
 
-        self._evaluate_error(bridge_send, midi_receive, ["Transmission", "not found"])
+        self._evaluate_error(bridge_send, midi_receive, ["transmission", "not found"])
 
 
     def test_receive_invalid_chunk(self):
