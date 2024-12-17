@@ -11,7 +11,7 @@ from random import randint
 ####################################################################################################################
  
 # Bridge version
-PMB_VERSION = "0.5.1"
+PMB_VERSION = "0.5.2"
 
 # Manufacturer ID of PyMidiBridge
 PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 

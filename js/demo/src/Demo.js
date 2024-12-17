@@ -150,12 +150,12 @@ class Demo {
      * Called by the UI to save the passed content.
      */
     async save(path, content) {
-        if (!confirm("Do you want to save " + path + "?")) return;
+        if (!confirm("Do you want to save " + path + " to " + this.portName() + "?")) return;
         
-        const errors = (new DemoLinter()).getAnnotations(content);
-        if (errors) {
-            if (!confirm(path + " contains syntax errors. Do you still want to save it?")) return;
-        }
+        // const errors = (new DemoLinter()).getAnnotations(content);
+        // if (errors) {
+        //     if (!confirm(path + " contains syntax errors. Do you still want to save it?")) return;
+        // }
 
         try {
             this.ui.console.log("Writing " + this.portName() + path);
