@@ -10,7 +10,7 @@ with patch.dict(sys.modules, {
     "os": MockOs,
     "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
 }):
-    from lib.pymidibridge.MidiBridgeWrapper import MidiBridgeStorageProvider
+    from lib.pymidibridge.MidiBridgeStorageProvider import MidiBridgeStorageProvider
 
 
 class TestMidiBridgeStorageProvider(unittest.TestCase):

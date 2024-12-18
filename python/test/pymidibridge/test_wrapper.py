@@ -12,6 +12,9 @@ with patch.dict(sys.modules, {
     from lib.pymidibridge.MidiBridgeWrapper import MidiBridgeWrapper
 
 
+_PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
+
+
 class TestWrapper(unittest.TestCase):
 
     def test_send(self):
@@ -25,11 +28,15 @@ class TestWrapper(unittest.TestCase):
             data = [0x45, 0x67]
         )
 
-        wrapper.send(msg)
-        self.assertEqual(midi.messages_sent, [msg])
+        with patch.dict(sys.modules, {
+            "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
+        }):
 
-        wrapper.send(msg)
-        self.assertEqual(midi.messages_sent, [msg, msg])
+            wrapper.send(msg)
+            self.assertEqual(midi.messages_sent, [msg])
+
+            wrapper.send(msg)
+            self.assertEqual(midi.messages_sent, [msg, msg])
 
 
     def test_receive(self):
@@ -39,8 +46,9 @@ class TestWrapper(unittest.TestCase):
         wrapper = MidiBridgeWrapper(
             midi = midi
         )
-        wrapper._bridge = bridge
+        wrapper._MidiBridgeWrapper__bridge = bridge
 
+        # Receive foreign message
         msg = SystemExclusive(
             manufacturer_id = [0x00, 0x23, 0x45],
             data = [0x45, 0x67]
@@ -51,18 +59,24 @@ class TestWrapper(unittest.TestCase):
         ]
 
         self.assertEqual(wrapper.receive(), msg)
-        self.assertEqual(bridge.receive_calls, [msg])
+        self.assertEqual(bridge.receive_calls, [])
 
         self.assertEqual(wrapper.receive(), None)
-        self.assertEqual(bridge.receive_calls, [msg])
+        self.assertEqual(bridge.receive_calls, [])
+
+        # Receive own message
+        msg_2 = SystemExclusive(
+            manufacturer_id = _PMB_MANUFACTURER_ID,
+            data = [0x45, 0x67]
+        )
 
         midi.next_receive_messages = [
-            msg
+            msg_2
         ]
-        bridge.receive_outputs[msg] = True
+        bridge.receive_outputs[msg_2] = True
 
         self.assertEqual(wrapper.receive(), None)
-        self.assertEqual(bridge.receive_calls, [msg, msg])
+        self.assertEqual(bridge.receive_calls, [msg_2])
         self.assertEqual(MockTime.sleep_calls, [0.01])
 
 
@@ -78,14 +92,18 @@ class TestWrapper(unittest.TestCase):
             data = [0x45, 0x67]
         )
 
-        wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
-        self.assertEqual(len(midi.messages_sent), 1)
-        self.assertEqual(midi.messages_sent[0].manufacturer_id, msg.manufacturer_id)
-        self.assertEqual(midi.messages_sent[0].data, msg.data)
+        with patch.dict(sys.modules, {
+            "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
+        }):
 
-        wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
-        self.assertEqual(len(midi.messages_sent), 2)
-        self.assertEqual(midi.messages_sent[1].manufacturer_id, msg.manufacturer_id)
-        self.assertEqual(midi.messages_sent[1].data, msg.data)
+            wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
+            self.assertEqual(len(midi.messages_sent), 1)
+            self.assertEqual(midi.messages_sent[0].manufacturer_id, msg.manufacturer_id)
+            self.assertEqual(midi.messages_sent[0].data, msg.data)
+
+            wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
+            self.assertEqual(len(midi.messages_sent), 2)
+            self.assertEqual(midi.messages_sent[1].manufacturer_id, msg.manufacturer_id)
+            self.assertEqual(midi.messages_sent[1].data, msg.data)
 
 

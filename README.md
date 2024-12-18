@@ -121,6 +121,7 @@ To install the demo on a device, do the following:
 - Mount the device via USB (will be named "CIRCUITPY" most likely)
 - Copy the code.py and boot.py files to the root folder
 - Copy the folder python/lib/pymidibridge to the device as /lib/pymidibridge
+- If you want to use the mpy files (pre-compiled), just delete the .py files or vice versa
 
 #### Wrapper Protocol
 

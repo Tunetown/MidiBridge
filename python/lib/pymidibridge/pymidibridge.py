@@ -11,51 +11,51 @@ from random import randint
 ####################################################################################################################
  
 # Bridge version
-PMB_VERSION = "0.5.2"
+PMB_VERSION = "0.5.3"
 
 # Manufacturer ID of PyMidiBridge
-PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
+_PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
 
 # Command prefix to request a file to be transfered.
 # Syntax: [
-#     *PMB_REQUEST_MESSAGE,
+#     *_PMB_REQUEST_MESSAGE,
 #     <CRC-16, 3 half-bytes (only first 16 bits used, calculated over the rest of the message)>,
 #     <Requested chunk size, 4 half-bytes>
 #     <Path name as utf-8 bytes with no null termination>
 # ]
-PMB_REQUEST_MESSAGE = b'\x01'
+_PMB_REQUEST_MESSAGE = b'\x01'
 
 # Command prefix to signal start of transfer. The transmission ID is a random requence used to identify 
 # the file during the transfer, and is not used afterwards.
 #
 # Syntax: [
-#     *PMB_START_MESSAGE,
+#     *_PMB_START_MESSAGE,
 #     <CRC-16, 3 half-bytes (only first 16 bits used, calculated over the rest of the message)>,
 #     <Transmission id, 2 half-bytes>,
 #     <Transmission type, 1 half-byte>,
 #     <Amount of chunks to be expected, 4 half-bytes>
 #     <Path name as utf-8 bytes with no null termination>
 # ]
-PMB_START_MESSAGE = b'\x02'
+_PMB_START_MESSAGE = b'\x02'
 
 # Command prefix for sending data chunks
 # Syntax: [
-#     *PMB_DATA_MESSAGE,
+#     *_PMB_DATA_MESSAGE,
 #     <CRC-16, 3 half-bytes (only first 16 bits used, calculated over the rest of the message)>,
 #     <Transmission id, 2 half-bytes>,
 #     <Chunk index, 4 half-bytes>,
 #     <Payload, variable length>
 # ]
-PMB_DATA_MESSAGE = b'\x03'
+_PMB_DATA_MESSAGE = b'\x03'
 
 # Command prefix for the acknowledge message, which is sent to acknowledge a chunk.
 # Syntax: [
-#     *PMB_ACK_MESSAGE,
+#     *_PMB_ACK_MESSAGE,
 #     <CRC-16, 3 half-bytes (only first 16 bits used, calculated over the rest of the message)>,
 #     <Transmission id, 2 half-bytes>,
 #     <Chunk index, 4 half-bytes>
 # ]
-PMB_ACK_MESSAGE = b'\x04'
+_PMB_ACK_MESSAGE = b'\x04'
 
 
 ####################################################################################################################
@@ -126,18 +126,18 @@ class PyMidiBridge:
     _NEXT_ID = None  
 
     # midi_send:        Object to send SystemExclusive messages. See MidiSender definition below.
-    # storage:          Object to interact with storage. See StorageProvider definition below.
+    # storage_factory:  Function to return a storage provider instance. See STorageProvider definition below.
     # event_handler:    Optional event handler, used to handle incoming errors as well as other stuff. 
     #                   See EventHaldler definition below. 
     #
     def __init__(self, 
                  midi, 
-                 storage = None, 
+                 storage_factory = None, 
                  event_handler = None, 
                 #  debug = False
         ):
         self._midi = midi
-        self._storage = storage
+        self._storage_factory = storage_factory
         self._event_handler = event_handler
         # self._debug = debug
 
@@ -156,11 +156,13 @@ class PyMidiBridge:
         if chunk_size < 1:
             raise Exception("Invalid chunk size: " + repr(chunk_size))
         
-        if not self._storage:
-            raise Exception("No storage provider")
+        if not self._storage_factory:
+            raise Exception("No storage provider factory")
+        
+        storage = self._storage_factory()            
 
         # Check if file exists and see how many chunks we will need
-        data_size = self._storage.size(path)
+        data_size = storage.size(path)
         if data_size < 0:
             raise Exception(repr(path) + " not found")
         
@@ -219,7 +221,7 @@ class PyMidiBridge:
         if transmission[_PMB_TRANSMISSION_KEY_TYPE] == _PMB_TRANSMISSION_TYPE_FILE:
             if not _PMB_TRANSMISSION_KEY_HANDLE in transmission:
                 # Open file for reading if not yet done
-                transmission[_PMB_TRANSMISSION_KEY_HANDLE] = self._storage.open(transmission[_PMB_TRANSMISSION_KEY_PATH], "r")
+                transmission[_PMB_TRANSMISSION_KEY_HANDLE] = self._storage_factory().open(transmission[_PMB_TRANSMISSION_KEY_PATH], "r")
 
             chunk = transmission[_PMB_TRANSMISSION_KEY_HANDLE].read(chunk_size)
         else:
@@ -251,8 +253,8 @@ class PyMidiBridge:
         checksum = self._get_checksum(payload)
 
         self._midi.send_system_exclusive(
-            manufacturer_id = PMB_MANUFACTURER_ID,
-            data = PMB_REQUEST_MESSAGE + checksum + payload            
+            manufacturer_id = _PMB_MANUFACTURER_ID,
+            data = _PMB_REQUEST_MESSAGE + checksum + payload            
         )
 
 
@@ -267,8 +269,8 @@ class PyMidiBridge:
         #     print("Send start message for " + repr(transmission))
 
         self._midi.send_system_exclusive(
-            manufacturer_id = PMB_MANUFACTURER_ID,
-            data = PMB_START_MESSAGE + checksum + payload            
+            manufacturer_id = _PMB_MANUFACTURER_ID,
+            data = _PMB_START_MESSAGE + checksum + payload            
         )
 
 
@@ -284,8 +286,8 @@ class PyMidiBridge:
         #     print("Send data chunk " + repr(transmission["nextChunk"]))
 
         self._midi.send_system_exclusive(
-            manufacturer_id = PMB_MANUFACTURER_ID,
-            data = PMB_DATA_MESSAGE + checksum + payload
+            manufacturer_id = _PMB_MANUFACTURER_ID,
+            data = _PMB_DATA_MESSAGE + checksum + payload
         )
 
 
@@ -315,7 +317,7 @@ class PyMidiBridge:
             return False
         
         # Is the message for us?
-        if midi_message.manufacturer_id != PMB_MANUFACTURER_ID:
+        if midi_message.manufacturer_id != _PMB_MANUFACTURER_ID:
             return False
         
         # This determines what the sender of the message wants to do
@@ -331,7 +333,7 @@ class PyMidiBridge:
                 raise Exception("Checksum mismatch")
 
             # Receive: Message to request sending a file
-            if command_id == PMB_REQUEST_MESSAGE:
+            if command_id == _PMB_REQUEST_MESSAGE:
                 # Send file
                 self._receive_request(payload)
                 return True
@@ -341,15 +343,15 @@ class PyMidiBridge:
             payload = payload[_PMB_TRANSMISSION_ID_LENGTH_HALFBYTES:]            
 
             # Receive: Start of transmission
-            if command_id == PMB_START_MESSAGE:
+            if command_id == _PMB_START_MESSAGE:
                 self._receive_start(transmission_id_bytes, payload)
 
             # Receive: Data
-            elif command_id == PMB_DATA_MESSAGE:            
+            elif command_id == _PMB_DATA_MESSAGE:            
                 self._receive_data(transmission_id_bytes, payload)
 
             # Ack message
-            elif command_id == PMB_ACK_MESSAGE:
+            elif command_id == _PMB_ACK_MESSAGE:
                 self._receive_ack(transmission_id_bytes, payload)                
 
 
@@ -384,11 +386,11 @@ class PyMidiBridge:
         }
 
         if transmission[_PMB_TRANSMISSION_KEY_TYPE] == _PMB_TRANSMISSION_TYPE_FILE:
-            if not self._storage:
-                raise Exception("No storage provider")
+            if not self._storage_factory:
+                raise Exception("No storage provider factory")
         
             # Open file for appending
-            transmission[_PMB_TRANSMISSION_KEY_HANDLE] = self._storage.open(transmission[_PMB_TRANSMISSION_KEY_PATH], "a")
+            transmission[_PMB_TRANSMISSION_KEY_HANDLE] = self._storage_factory().open(transmission[_PMB_TRANSMISSION_KEY_PATH], "a")
         else:
             # Initialize buffer
             transmission[_PMB_TRANSMISSION_KEY_BUFFER] = ""
@@ -493,8 +495,8 @@ class PyMidiBridge:
         #     print("Send ack message " + repr(chunk_index))            
 
         self._midi.send_system_exclusive(
-            manufacturer_id = PMB_MANUFACTURER_ID,
-            data = PMB_ACK_MESSAGE + checksum + payload
+            manufacturer_id = _PMB_MANUFACTURER_ID,
+            data = _PMB_ACK_MESSAGE + checksum + payload
         )
 
 

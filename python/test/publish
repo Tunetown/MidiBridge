@@ -1,0 +1,5 @@
+#!/bin/bash
+
+/project/bin/mpy-cross /project/lib/pymidibridge/PyMidiBridge.py
+/project/bin/mpy-cross /project/lib/pymidibridge/MidiBridgeWrapper.py
+/project/bin/mpy-cross /project/lib/pymidibridge/MidiBridgeStorageProvider.py

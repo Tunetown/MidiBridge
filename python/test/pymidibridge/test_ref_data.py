@@ -140,7 +140,7 @@ class TestWithReferenceData(unittest.TestCase):
 
         bridge_send = PyMidiBridge(
             midi = midi_send,
-            storage = storage_send 
+            storage_factory = get_mock_storage_factory(storage_send)
         )
 
         # Bridge for receiving
@@ -149,7 +149,7 @@ class TestWithReferenceData(unittest.TestCase):
 
         bridge_receive = PyMidiBridge(
             midi = midi_receive,
-            storage = storage_receive 
+            storage_factory = get_mock_storage_factory(storage_receive)
         )
 
         # Get a request message for the path

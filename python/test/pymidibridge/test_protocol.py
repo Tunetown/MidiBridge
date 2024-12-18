@@ -10,6 +10,11 @@ with patch.dict(sys.modules, {
     from lib.pymidibridge.PyMidiBridge import *
 
 
+_PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
+_PMB_ACK_MESSAGE = b'\x04'
+_PMB_REQUEST_MESSAGE = b'\x01'
+
+
 class TestProtocol(unittest.TestCase):
 
     def test_send_receive(self):
@@ -65,7 +70,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_send = PyMidiBridge(
             midi = midi_send,
-            storage = storage_send,
+            storage_factory = get_mock_storage_factory(storage_send),
             event_handler = MockEventHandler()
         )
 
@@ -75,7 +80,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_receive = PyMidiBridge(
             midi = midi_receive,
-            storage = storage_receive,
+            storage_factory = get_mock_storage_factory(storage_receive),
             event_handler = MockEventHandler()
         )
 
@@ -98,8 +103,8 @@ class TestProtocol(unittest.TestCase):
 
         # Helper to check ack messages
         def evaluate_ack(midi_message, exp_chunk_index):
-            self.assertEqual(midi_message.manufacturer_id, PMB_MANUFACTURER_ID)
-            self.assertEqual(midi_message.data[:1], PMB_ACK_MESSAGE)
+            self.assertEqual(midi_message.manufacturer_id, _PMB_MANUFACTURER_ID)
+            self.assertEqual(midi_message.data[:1], _PMB_ACK_MESSAGE)
 
             bridge = PyMidiBridge(None, None)
 
@@ -149,8 +154,7 @@ class TestProtocol(unittest.TestCase):
         midi = MockMidiSender()
 
         bridge = PyMidiBridge(
-            midi = midi,
-            storage = None
+            midi = midi
         )
 
         # Put in some invalid messages too: Different manufacturer ID (no Exception)
@@ -197,7 +201,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge = PyMidiBridge(
             midi = midi,
-            storage = storage,
+            storage_factory = get_mock_storage_factory(storage),
             event_handler = events
         )
 
@@ -235,7 +239,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_send = PyMidiBridge(
             midi = midi_send,
-            storage = storage_send
+            storage_factory = get_mock_storage_factory(storage_send)
         )
 
         # Bridge for receiving data
@@ -270,7 +274,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_send = PyMidiBridge(
             midi = midi_send,
-            storage = storage_send
+            storage_factory = get_mock_storage_factory(storage_send)
         )
 
         # Bridge for sending other data
@@ -287,7 +291,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_send_2 = PyMidiBridge(
             midi = midi_send_2,
-            storage = storage_send_2
+            storage_factory = get_mock_storage_factory(storage_send_2)
         )
 
         # Bridge for receiving data
@@ -295,7 +299,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_receive = PyMidiBridge(
             midi = midi_receive,
-            storage = MockStorageProvider()
+            storage_factory = get_mock_storage_factory()
         )
 
         # Main transmission
@@ -330,7 +334,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_send = PyMidiBridge(
             midi = midi_send,
-            storage = storage_send
+            storage_factory = get_mock_storage_factory(storage_send)
         )
 
         # Bridge for receiving data
@@ -338,7 +342,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge_receive = PyMidiBridge(
             midi = midi_receive,
-            storage = MockStorageProvider()
+            storage_factory = get_mock_storage_factory()
         )
 
         # Main transmission
@@ -423,7 +427,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge = PyMidiBridge(
             midi = midi, 
-            storage = storage
+            storage_factory = get_mock_storage_factory(storage)
         )
 
         storage.outputs_size = {
@@ -453,7 +457,7 @@ class TestProtocol(unittest.TestCase):
 
         bridge = PyMidiBridge(
             midi = midi, 
-            storage = storage
+            storage_factory = get_mock_storage_factory(storage)
         )
 
         storage.outputs_size = {
@@ -486,16 +490,15 @@ class TestProtocol(unittest.TestCase):
         midi = MockMidiSender()
 
         bridge = PyMidiBridge(
-            midi = midi,
-            storage = None
+            midi = midi
         )        
         
         bridge.request(exp_path, exp_chunk_size)
 
         msg_sent = midi.messages_sent[0]
         
-        self.assertEqual(msg_sent.manufacturer_id, PMB_MANUFACTURER_ID)
-        self.assertEqual(msg_sent.data[:1], PMB_REQUEST_MESSAGE)
+        self.assertEqual(msg_sent.manufacturer_id, _PMB_MANUFACTURER_ID)
+        self.assertEqual(msg_sent.data[:1], _PMB_REQUEST_MESSAGE)
 
         checksum = msg_sent.data[1:4]
         chunk_size = bridge._bytes_2_number(msg_sent.data[4:8])
@@ -553,7 +556,7 @@ class TestProtocol(unittest.TestCase):
         other_midi = MockMidiSender()
         other_bridge = PyMidiBridge(
             midi = other_midi, 
-            storage = MockStorageProvider(),
+            storage_factory = get_mock_storage_factory(),
             event_handler = events
         )        
 

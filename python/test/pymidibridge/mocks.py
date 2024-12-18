@@ -138,6 +138,16 @@ class MockStorageProvider:
         return self.outputs_size[path] if path in self.outputs_size else 0
 
 
+def get_mock_storage_factory(provider = None):
+    if not provider:
+        provider = MockStorageProvider()
+    
+    def sf():
+        return provider
+        
+    return sf
+
+
 class MockEventHandler:
     def __init__(self):
         self.last_error = None

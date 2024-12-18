@@ -23,7 +23,7 @@
 /**
  * Bridge version
  */
-const JMB_VERSION = "0.5.1";
+const JMB_VERSION = "0.5.3";
 
 /**
  * Manufacturer ID of JsMidiBridge
