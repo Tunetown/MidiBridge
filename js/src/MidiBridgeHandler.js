@@ -45,16 +45,17 @@ const BRIDGE_DEBUG = false;
  */
 class MidiBridgeHandler {
 
-    #midiAccess = null;          // MIDIAccess instance
+    midiAccess = null;           // MIDIAccess instance
     console = console;           // Console output (can be redirected)
     #connectionAttempts = null;  // Map of attempts for scan
     
-    constructor() {
+    constructor(midiAccess = null) {
         this.#connectionAttempts = new Map();
+        this.midiAccess = midiAccess;
     }
 
     /**
-     * Sets up MIDI communication
+     * Sets up MIDI communication. After this, midiAccess is set and can be used.
      */
     async init() {
         const that = this
@@ -66,7 +67,7 @@ class MidiBridgeHandler {
                 }
 
                 // Use a handler class for accessing the bridge and creating the connection
-                that.#midiAccess = midiAccess;
+                that.midiAccess = midiAccess;
 
                 resolve();
             }
@@ -93,7 +94,7 @@ class MidiBridgeHandler {
      */
     scan(onFinish = null) {
         // Get all in/out pairs sharing the same name
-        const ports = this.#getMatchingPortPairs();
+        const ports = this.getMatchingPortPairs();
 
         const that = this;        
         async function scanPorts(name) {            
@@ -142,8 +143,8 @@ class MidiBridgeHandler {
             throw new Error("Port " + portName + " not found");
         }
 
-        const input = findPort(that.#midiAccess.inputs);
-        const output = findPort(that.#midiAccess.outputs);
+        const input = findPort(this.midiAccess.inputs);
+        const output = findPort(this.midiAccess.outputs);
 
         // We use a name most likely not existing. If it does exist, this would also work,
         // but the overhead is bigger.
@@ -263,15 +264,15 @@ class MidiBridgeHandler {
      *     output:
      * }
      */
-    #getMatchingPortPairs() {
+    getMatchingPortPairs() {
         const ret = [];
 
         // Inputs
-        for (const input of this.#midiAccess.inputs) {
+        for (const input of this.midiAccess.inputs) {
             const in_handler = input[1];
 
             // Get corresponding output
-            for (const output of this.#midiAccess.outputs) {
+            for (const output of this.midiAccess.outputs) {
                 const out_handler = output[1];
 
                 if ((out_handler.manufacturer == in_handler.manufacturer) && (out_handler.name == in_handler.name)) {
