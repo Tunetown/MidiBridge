@@ -160,10 +160,7 @@ class TestWithReferenceData(unittest.TestCase):
         # Let the bridge receive a request message, to trigger it sending a file        
         self.assertEqual(
             bridge_send.receive(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = bytes(msg_request["manufacturerId"]),
-                    data = bytes(msg_request["data"])
-                )
+                bytes((0xf0,) + msg_request["manufacturerId"]) + bytes(msg_request["data"] + (0xf7,))
             ), 
             True
         )
@@ -178,10 +175,7 @@ class TestWithReferenceData(unittest.TestCase):
             
             self.assertEqual(
                 bridge_receive.receive(
-                    MockSystemExclusiveMessage(
-                        manufacturer_id = bytes(msg["manufacturerId"]),
-                        data = bytes(msg["data"])
-                    )
+                    bytes((0xf0,) + msg["manufacturerId"]) + bytes(msg["data"] + (0xf7,))
                 ), 
                 True
             )
@@ -191,10 +185,7 @@ class TestWithReferenceData(unittest.TestCase):
 
                 self.assertEqual(
                     bridge_send.receive(
-                        MockSystemExclusiveMessage(
-                            manufacturer_id = bytes(rmsg["manufacturerId"]),
-                            data = bytes(rmsg["data"])
-                        )
+                        bytes((0xf0,) + rmsg["manufacturerId"]) + bytes(rmsg["data"] + (0xf7,))
                     ),
                     True
                 )

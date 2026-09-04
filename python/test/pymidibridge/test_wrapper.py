@@ -6,9 +6,7 @@ from .mocks import *
 
 with patch.dict(sys.modules, {
     "time": MockTime,
-    "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
 }):
-    from adafruit_midi.system_exclusive import SystemExclusive    
     from lib.pymidibridge.MidiBridgeWrapper import MidiBridgeWrapper
 
 
@@ -23,20 +21,13 @@ class TestWrapper(unittest.TestCase):
             midi = midi
         )
 
-        msg = SystemExclusive(
-            manufacturer_id = [0x00, 0x23, 0x45],
-            data = [0x45, 0x67]
-        )
+        msg = [0xf0, 0x00, 0x23, 0x45, 0x45, 0x67, 0xf7]
 
-        with patch.dict(sys.modules, {
-            "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
-        }):
+        wrapper.send(msg)
+        self.assertEqual(midi.messages_sent, [msg])
 
-            wrapper.send(msg)
-            self.assertEqual(midi.messages_sent, [msg])
-
-            wrapper.send(msg)
-            self.assertEqual(midi.messages_sent, [msg, msg])
+        wrapper.send(msg)
+        self.assertEqual(midi.messages_sent, [msg, msg])
 
 
     def test_receive(self):
@@ -49,10 +40,7 @@ class TestWrapper(unittest.TestCase):
         wrapper._MidiBridgeWrapper__bridge = bridge
 
         # Receive foreign message
-        msg = SystemExclusive(
-            manufacturer_id = [0x00, 0x23, 0x45],
-            data = [0x45, 0x67]
-        )
+        msg = [0xf0, 0x00, 0x23, 0x45, 0x45, 0x67, 0xf7]
 
         midi.next_receive_messages = [
             msg
@@ -65,10 +53,7 @@ class TestWrapper(unittest.TestCase):
         self.assertEqual(bridge.receive_calls, [])
 
         # Receive own message
-        msg_2 = SystemExclusive(
-            manufacturer_id = _PMB_MANUFACTURER_ID,
-            data = [0x45, 0x67]
-        )
+        msg_2 = bytes((0xf0,) + tuple(_PMB_MANUFACTURER_ID) + (0x45, 0x67) + (0xf7,))
 
         midi.next_receive_messages = [
             msg_2
@@ -87,23 +72,15 @@ class TestWrapper(unittest.TestCase):
             midi = midi
         )
 
-        msg = SystemExclusive(
-            manufacturer_id = [0x00, 0x23, 0x45],
-            data = [0x45, 0x67]
-        )
+        manufacturer_id = [0x00, 0x23, 0x45]
+        data = [0x45, 0x67]
 
-        with patch.dict(sys.modules, {
-            "adafruit_midi.system_exclusive": MockAdafruitMIDISystemExclusive()
-        }):
-
-            wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
-            self.assertEqual(len(midi.messages_sent), 1)
-            self.assertEqual(midi.messages_sent[0].manufacturer_id, msg.manufacturer_id)
-            self.assertEqual(midi.messages_sent[0].data, msg.data)
-
-            wrapper.send_system_exclusive(msg.manufacturer_id, msg.data)
-            self.assertEqual(len(midi.messages_sent), 2)
-            self.assertEqual(midi.messages_sent[1].manufacturer_id, msg.manufacturer_id)
-            self.assertEqual(midi.messages_sent[1].data, msg.data)
+        wrapper.send_system_exclusive(manufacturer_id, data)
+        self.assertEqual(len(midi.messages_sent), 1)
+        self.assertEqual(midi.messages_sent[0], (0xf0,) + manufacturer_id + data + (0xf7,))
+        
+        wrapper.send_system_exclusive(manufacturer_id, data)
+        self.assertEqual(len(midi.messages_sent), 2)
+        self.assertEqual(midi.messages_sent[1], (0xf0,) + manufacturer_id + data + (0xf7,))
 
 

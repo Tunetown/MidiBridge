@@ -103,8 +103,8 @@ class TestProtocol(unittest.TestCase):
 
         # Helper to check ack messages
         def evaluate_ack(midi_message, exp_chunk_index):
-            self.assertEqual(midi_message.manufacturer_id, _PMB_MANUFACTURER_ID)
-            self.assertEqual(midi_message.data[:1], _PMB_ACK_MESSAGE)
+            self.assertEqual(midi_message[1:4], _PMB_MANUFACTURER_ID)
+            self.assertEqual(midi_message.data[4:5], _PMB_ACK_MESSAGE)
 
             bridge = PyMidiBridge(None, None)
 
@@ -159,12 +159,7 @@ class TestProtocol(unittest.TestCase):
 
         # Put in some invalid messages too: Different manufacturer ID (no Exception)
         self.assertEqual(
-            bridge.receive(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = [0x00, 0x01, 0x02],
-                    data = [0x00, 0xac, 0xdc]
-                )
-            ),
+            bridge.receive([0xf0, 0x00, 0x01, 0x02, 0x00, 0xac, 0xdc, 0xf7]),
             False
         )
 
@@ -213,10 +208,7 @@ class TestProtocol(unittest.TestCase):
         # Transmission errors: Change some byte (must return an error message)
         self.assertEqual(
             bridge.receive(
-                MockSystemExclusiveMessage(
-                    manufacturer_id = msg_request.manufacturer_id,
-                    data = [msg_request.data[i] if i != 1 else msg_request.data[i - 1] for i in range(len(msg_request.data))]
-                )
+                tuple((0xf0,) + msg_request[1:4] + ([msg_request[4+i] if i != 1 else msg_request[4 + i - 1] for i in range(len(msg_request) - 5)]) + (0xf7,))
             ), 
             True
         )        
@@ -497,16 +489,16 @@ class TestProtocol(unittest.TestCase):
 
         msg_sent = midi.messages_sent[0]
         
-        self.assertEqual(msg_sent.manufacturer_id, _PMB_MANUFACTURER_ID)
-        self.assertEqual(msg_sent.data[:1], _PMB_REQUEST_MESSAGE)
+        self.assertEqual(msg_sent[1:4], _PMB_MANUFACTURER_ID)
+        self.assertEqual(msg_sent.data[4:5], _PMB_REQUEST_MESSAGE)
 
         checksum = msg_sent.data[1:4]
-        chunk_size = bridge._bytes_2_number(msg_sent.data[4:8])
-        path = bridge._bytes_2_string(msg_sent.data[8:])
+        chunk_size = bridge._bytes_2_number(msg_sent[4+4:4+8])
+        path = bridge._bytes_2_string(msg_sent[4+8:])
         
         self.assertEqual(path, exp_path)
         self.assertEqual(chunk_size, exp_chunk_size)
-        self.assertEqual(checksum, bridge._get_checksum(msg_sent.data[4:]))
+        self.assertEqual(checksum, bridge._get_checksum(msg_sent[4+4:]))
 
 
     def test_request_no_path(self):

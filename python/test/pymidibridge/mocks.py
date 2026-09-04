@@ -39,13 +39,13 @@ class MockTime:
         MockTime.sleep_calls.append(amount)
 
 
-class MockSystemExclusiveMessage:
-    def __init__(self, manufacturer_id = bytes([]), data = bytes([])):
-        self.manufacturer_id = bytes(manufacturer_id)
-        self.data = bytes(data)
+# class MockSystemExclusiveMessage:
+#     def __init__(self, manufacturer_id = bytes([]), data = bytes([])):
+#         self.manufacturer_id = bytes(manufacturer_id)
+#         self.data = bytes(data)
 
-    def __repr__(self):
-        return repr([list(self.manufacturer_id), list(self.data)])
+#     def __repr__(self):
+#         return repr([list(self.manufacturer_id), list(self.data)])
 
 
 class MockMidiSender:
@@ -55,17 +55,18 @@ class MockMidiSender:
         self._serializable = serializable
 
     def send_system_exclusive(self, manufacturer_id, data):
-        if self._serializable:
-            # Use serializable representation
-            obj = {
-                "manufacturerId": list(manufacturer_id),
-                "data": list(data)
-            }
-        else:
-            obj = MockSystemExclusiveMessage(
-                manufacturer_id = manufacturer_id,
-                data = data
-            )
+        obj = bytes((0xf0,) + manufacturer_id + data + (0xf7,))
+        # if self._serializable:
+        #     # Use serializable representation
+        #     obj = {
+        #         "manufacturerId": list(manufacturer_id),
+        #         "data": list(data)
+        #     }
+        # else:
+        #     obj = MockSystemExclusiveMessage(
+        #         manufacturer_id = manufacturer_id,
+        #         data = data
+        #     )
 
         self.messages_sent.append(obj)
         self.messages_all.append(obj)
@@ -178,11 +179,11 @@ class MockMidiController:
         self.messages_sent.append(midi_message)
 
 
-class MockAdafruitMIDISystemExclusive:    
-    class SystemExclusive:
-        def __init__(self, manufacturer_id = [0x00, 0x00, 0x00], data = []):
-            self.manufacturer_id = manufacturer_id
-            self.data = data
+# class MockAdafruitMIDISystemExclusive:    
+#     class SystemExclusive:
+#         def __init__(self, manufacturer_id = [0x00, 0x00, 0x00], data = []):
+#             self.manufacturer_id = manufacturer_id
+#             self.data = data
 
 
 class MockBridge:

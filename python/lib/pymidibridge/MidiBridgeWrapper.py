@@ -100,13 +100,14 @@ class MidiBridgeWrapper:
 
     # Must send the passed data as MIDI system exclusive message (used by the bridge)
     def send_system_exclusive(self, manufacturer_id, data):
-        from adafruit_midi.system_exclusive import SystemExclusive
+        # from adafruit_midi.system_exclusive import SystemExclusive
         
         self._midi.send(
-            SystemExclusive(
-                manufacturer_id = manufacturer_id,
-                data = data
-            )
+            bytes((0xf0,) + manufacturer_id + data + (0xf7,))
+            # SystemExclusive(
+            #     manufacturer_id = manufacturer_id,
+            #     data = data
+            # )
         )
 
     # Called when the bridge received an error message

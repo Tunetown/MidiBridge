@@ -313,19 +313,22 @@ class PyMidiBridge:
     # have to feature the attributes "manufacturer_id" and "data" (both bytearrays) to be regarded
     def receive(self, midi_message):
         # Check if the message has the necessary attributes
-        if not hasattr(midi_message, "manufacturer_id") or not hasattr(midi_message, "data"):
+        try:
+            if midi_message[0] != 0xf0:
+                return False
+        except TypeError:
             return False
         
         # Is the message for us?
-        if midi_message.manufacturer_id != _PMB_MANUFACTURER_ID:
+        if bytes(midi_message[1:4]) != _PMB_MANUFACTURER_ID:
             return False
         
         # This determines what the sender of the message wants to do
-        command_id = midi_message.data[:_PMB_PREFIXES_LENGTH_HALFBYTES]
+        command_id = midi_message[4:4+_PMB_PREFIXES_LENGTH_HALFBYTES]
 
         # Next there is the checksum for all messages
-        checksum_bytes = midi_message.data[_PMB_PREFIXES_LENGTH_HALFBYTES:_PMB_PREFIXES_LENGTH_HALFBYTES + _PMB_CHECKSUM_LENGTH_HALFBYTES]
-        payload = midi_message.data[_PMB_PREFIXES_LENGTH_HALFBYTES + _PMB_CHECKSUM_LENGTH_HALFBYTES:]
+        checksum_bytes = midi_message[4+_PMB_PREFIXES_LENGTH_HALFBYTES:4+_PMB_PREFIXES_LENGTH_HALFBYTES + _PMB_CHECKSUM_LENGTH_HALFBYTES]
+        payload = midi_message[4+_PMB_PREFIXES_LENGTH_HALFBYTES + _PMB_CHECKSUM_LENGTH_HALFBYTES:]
 
         try:
             # Checksum test
