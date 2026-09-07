@@ -57,7 +57,7 @@ class TestWithReferenceData(unittest.TestCase):
         if path.exists(file_path):
             return
 
-        comm_data = self._get_roundtrip_data(data, chunk_size)        
+        comm_data = self._get_roundtrip_data(data, chunk_size)
         
         handle = open(file_path, "w")
         handle.write(json.dumps(comm_data))
@@ -158,12 +158,7 @@ class TestWithReferenceData(unittest.TestCase):
         midi_receive.messages_sent = []
         
         # Let the bridge receive a request message, to trigger it sending a file        
-        self.assertEqual(
-            bridge_send.receive(
-                bytes((0xf0,) + msg_request["manufacturerId"]) + bytes(msg_request["data"] + (0xf7,))
-            ), 
-            True
-        )
+        self.assertEqual(bridge_send.receive(msg_request), True)
 
         self.assertEqual(len(midi_send.messages_sent), 2)
 
@@ -173,26 +168,16 @@ class TestWithReferenceData(unittest.TestCase):
 
             msg = midi_send.messages_sent.pop(0)
             
-            self.assertEqual(
-                bridge_receive.receive(
-                    bytes((0xf0,) + msg["manufacturerId"]) + bytes(msg["data"] + (0xf7,))
-                ), 
-                True
-            )
+            self.assertEqual(bridge_receive.receive(msg), True)
 
             while midi_receive.messages_sent:
                 rmsg = midi_receive.messages_sent.pop(0)
 
-                self.assertEqual(
-                    bridge_send.receive(
-                        bytes((0xf0,) + rmsg["manufacturerId"]) + bytes(rmsg["data"] + (0xf7,))
-                    ),
-                    True
-                )
+                self.assertEqual(bridge_send.receive(rmsg), True)
 
         self.assertEqual(storage_receive.created_handles[0].write_contents, data)
 
         return {
-            "send": midi_send.messages_all,
-            "receive": midi_receive.messages_all
+            "send": [list(msg) for msg in midi_send.messages_all],
+            "receive": [list(msg) for msg in midi_receive.messages_all]
         }

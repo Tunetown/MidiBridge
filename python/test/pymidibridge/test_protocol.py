@@ -104,22 +104,22 @@ class TestProtocol(unittest.TestCase):
         # Helper to check ack messages
         def evaluate_ack(midi_message, exp_chunk_index):
             self.assertEqual(midi_message[1:4], _PMB_MANUFACTURER_ID)
-            self.assertEqual(midi_message.data[4:5], _PMB_ACK_MESSAGE)
+            self.assertEqual(midi_message[4:5], _PMB_ACK_MESSAGE)
 
             bridge = PyMidiBridge(None, None)
+            
+            checksum = midi_message[5:8]
+            chunk_index = bridge._bytes_2_number(midi_message[12:16])
 
-            checksum = midi_message.data[1:4]
-            chunk_size = bridge._bytes_2_number(midi_message.data[8:12])
-
-            self.assertEqual(checksum, bridge._get_checksum(midi_message.data[4:]))
-            self.assertEqual(chunk_size, exp_chunk_index)
+            self.assertEqual(checksum, bridge._get_checksum(midi_message[8:-1]))
+            self.assertEqual(chunk_index, exp_chunk_index)
 
         # Feed the generated MIDI messages to the receiving bridge, yielding the input data again
         chunk_index = 0
         while True:
             # Get next data message
             msg = midi_send.messages_sent.pop(0)
-            self.assertLessEqual(len(msg.data), chunk_size * 2 + 8)
+            self.assertLessEqual(len(msg) - 2, chunk_size * 2 + 8)
 
             # Feed data message to the receiving bridge (which must answer with ack)
             self.assertEqual(bridge_receive.receive(msg), True)
@@ -208,7 +208,7 @@ class TestProtocol(unittest.TestCase):
         # Transmission errors: Change some byte (must return an error message)
         self.assertEqual(
             bridge.receive(
-                tuple((0xf0,) + msg_request[1:4] + ([msg_request[4+i] if i != 1 else msg_request[4 + i - 1] for i in range(len(msg_request) - 5)]) + (0xf7,))
+                tuple((0xf0,) + tuple(msg_request[1:4]) + tuple([msg_request[4+i] if i != 1 else msg_request[4 + i - 1] for i in range(len(msg_request) - 5)]) + (0xf7,))
             ), 
             True
         )        
@@ -490,15 +490,15 @@ class TestProtocol(unittest.TestCase):
         msg_sent = midi.messages_sent[0]
         
         self.assertEqual(msg_sent[1:4], _PMB_MANUFACTURER_ID)
-        self.assertEqual(msg_sent.data[4:5], _PMB_REQUEST_MESSAGE)
+        self.assertEqual(msg_sent[4:5], _PMB_REQUEST_MESSAGE)
 
-        checksum = msg_sent.data[1:4]
-        chunk_size = bridge._bytes_2_number(msg_sent[4+4:4+8])
-        path = bridge._bytes_2_string(msg_sent[4+8:])
+        checksum = msg_sent[5:8]
+        chunk_size = bridge._bytes_2_number(msg_sent[8:12])
+        path = bridge._bytes_2_string(msg_sent[12:-1])
         
         self.assertEqual(path, exp_path)
         self.assertEqual(chunk_size, exp_chunk_size)
-        self.assertEqual(checksum, bridge._get_checksum(msg_sent[4+4:]))
+        self.assertEqual(checksum, bridge._get_checksum(msg_sent[8:-1]))
 
 
     def test_request_no_path(self):
@@ -562,7 +562,7 @@ class TestProtocol(unittest.TestCase):
             
             self.assertEqual(other_bridge.receive(msg), True)
 
-            while other_midi.messages_sent:
+            while len(other_midi.messages_sent) > 0:
                 bridge.receive(other_midi.messages_sent.pop(0))
                 
         self.assertIsNotNone(events.last_error, "Exception not thrown: " + repr(tokens))

@@ -6,11 +6,6 @@
 
 from time import sleep
 
-
-# Manufacturer ID of PyMidiBridge (copy!)
-_PMB_MANUFACTURER_ID = b'\x00\x7c\x7d' 
-
-
 # This passes all MIDI through to/from the passed MIDI handler, plus the PyMidiBridge is 
 # listening for commands to read/change the configuration files via SysEx.
 class MidiBridgeWrapper:
@@ -45,7 +40,7 @@ class MidiBridgeWrapper:
             # MIDI bridge (sends and receives MIDI messages to transfer files)
             self.__bridge = PyMidiBridge(
                 storage_factory = self.__storage_factory,
-                midi = self,                               # The bridge calls send_system_exclusive to send its data
+                midi = self._midi,                         # The bridge calls send(message) to send its data
                 event_handler = self                       # handle errors and messages here directly 
             )
         
@@ -60,20 +55,18 @@ class MidiBridgeWrapper:
     def receive(self):
         msg = self._midi.receive()
         
-        if msg:
-            # Only import the bridge when the first bessage comes in which really belongs to the bridge
-            if hasattr(msg, "manufacturer_id") and hasattr(msg, "data") and msg.manufacturer_id == _PMB_MANUFACTURER_ID:
-                if self.bridge.receive(msg):
-                    # Message handled by the bridge.
+        # Only import the bridge when the first bessage comes in which really belongs to the bridge
+        if self.bridge.receive(msg):
+            # Message handled by the bridge.
 
-                    # It is important to have some time between the MIDI receive calls,
-                    # else SysEx messages will not come in completely and will be parsed as unknown events
-                    # because the end status is not reached. We assume that after a bridge related message
-                    # has been parsed, there will come more, so we wait here, not interfering with your normal
-                    # communication.
-                    sleep(0.01)
+            # It is important to have some time between the MIDI receive calls,
+            # else SysEx messages will not come in completely and will be parsed as unknown events
+            # because the end status is not reached. We assume that after a bridge related message
+            # has been parsed, there will come more, so we wait here, not interfering with your normal
+            # communication.
+            sleep(0.01)
 
-                    return None
+            return None
             
         return msg
     
@@ -97,18 +90,6 @@ class MidiBridgeWrapper:
 
     ## Callbacks ###################################################################################
 
-
-    # Must send the passed data as MIDI system exclusive message (used by the bridge)
-    def send_system_exclusive(self, manufacturer_id, data):
-        # from adafruit_midi.system_exclusive import SystemExclusive
-        
-        self._midi.send(
-            bytes((0xf0,) + manufacturer_id + data + (0xf7,))
-            # SystemExclusive(
-            #     manufacturer_id = manufacturer_id,
-            #     data = data
-            # )
-        )
 
     # Called when the bridge received an error message
     def handle(self, message):

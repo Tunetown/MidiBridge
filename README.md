@@ -1,6 +1,6 @@
 # MidiBridge
 
-This project provides an algorithm to transfer files (or other data) between Python and JavaScript via MIDI SystemExclusive messages. It has been developed to read/write configuration files on <a href="https://circuitpython.org/" target="_blank">CircuitPython</a> or <a href="https://micropython.org/" target="_blank">MicroPython</a> devices like the PaintAudio MIDICaptain MIDI controllers (which are based on a <a href="https://www.raspberrypi.com/products/raspberry-pi-pico/" target="_blank">Raspberry Pi Pico</a> board) from the browser using the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API" target="_blank">Web MIDI API</a>, without needing to mount its USB drive.
+This project provides an algorithm to transfer files (or other data) between Python and JavaScript via MIDI System Exclusive messages. It has been developed to read/write configuration files on <a href="https://circuitpython.org/" target="_blank">CircuitPython</a> or <a href="https://micropython.org/" target="_blank">MicroPython</a> devices like the PaintAudio MIDICaptain MIDI controllers (which are based on a <a href="https://www.raspberrypi.com/products/raspberry-pi-pico/" target="_blank">Raspberry Pi Pico</a> board) from the browser using the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API" target="_blank">Web MIDI API</a>, without needing to mount its USB drive.
 
 The core algorithm is ported 1:1 to genuine Python 3 and ES6 JavaScript, based on comprehensive unit tests which rely on reference data to ensure bit compatibility between the two platforms.
 
@@ -160,9 +160,8 @@ Must implement this interface:
 
 ```python
 class MidiSender:
-    # Must send the passed data as MIDI system exclusive message. 
-    # Both parameters have to be byte arrays.
-    def send_system_exclusive(self, manufacturer_id, data):
+    # Must send the passed bytes data as MIDI message.
+    def send(self, message):
         pass
 ```
 
@@ -242,6 +241,14 @@ The test cases and mocks are implemented in python/test/pymidibridge. As this is
 
 The python port is the one that generates the reference files in python/test/data, which ensure cross platform compatibility. To regenerate them, just delete the old ones and run the tests again. All other tests use these files to verify their processing is correct.
 
+#### Publishing .mpy files
+
+For creating the pre-compiled .mpy files, run this command from inside the test container (see Unit Tests above):
+
+```console
+/project/test/publish
+```
+
 ### JavaScript
 
 The JsMidiBridge.js class provides the same algorithm as PyMidiBridge.py, but ported to JavaScript. The MidiBridgeHandler class is a wrapper around the bridge to integrate it in any JS application easily. The demo shows how this is done. 
@@ -287,7 +294,7 @@ docker compose down
 
 ## License
 
-(C) Thomas Weber 2024 tom-vibrant@gmx.de
+(C) Thomas Weber 2024-2026 tom-vibrant@gmx.de
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

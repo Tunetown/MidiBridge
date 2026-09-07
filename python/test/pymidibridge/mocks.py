@@ -54,19 +54,12 @@ class MockMidiSender:
         self.messages_all = []
         self._serializable = serializable
 
-    def send_system_exclusive(self, manufacturer_id, data):
-        obj = bytes((0xf0,) + manufacturer_id + data + (0xf7,))
-        # if self._serializable:
-        #     # Use serializable representation
-        #     obj = {
-        #         "manufacturerId": list(manufacturer_id),
-        #         "data": list(data)
-        #     }
-        # else:
-        #     obj = MockSystemExclusiveMessage(
-        #         manufacturer_id = manufacturer_id,
-        #         data = data
-        #     )
+    def send(self, message):
+        if self._serializable:
+            # Use serializable representation
+            obj = list(message)
+        else:
+            obj = message
 
         self.messages_sent.append(obj)
         self.messages_all.append(obj)

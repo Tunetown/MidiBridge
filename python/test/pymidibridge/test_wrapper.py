@@ -21,7 +21,7 @@ class TestWrapper(unittest.TestCase):
             midi = midi
         )
 
-        msg = [0xf0, 0x00, 0x23, 0x45, 0x45, 0x67, 0xf7]
+        msg = b'\xf0\x00\x23\x45\x45\x67\xf7'
 
         wrapper.send(msg)
         self.assertEqual(midi.messages_sent, [msg])
@@ -40,20 +40,20 @@ class TestWrapper(unittest.TestCase):
         wrapper._MidiBridgeWrapper__bridge = bridge
 
         # Receive foreign message
-        msg = [0xf0, 0x00, 0x23, 0x45, 0x45, 0x67, 0xf7]
+        msg = b'\xf0\x00\x23\x45\x45\x67\xf7'
 
         midi.next_receive_messages = [
             msg
         ]
 
         self.assertEqual(wrapper.receive(), msg)
-        self.assertEqual(bridge.receive_calls, [])
+        self.assertEqual(bridge.receive_calls, [msg])
 
         self.assertEqual(wrapper.receive(), None)
-        self.assertEqual(bridge.receive_calls, [])
+        self.assertEqual(bridge.receive_calls, [msg, None])
 
         # Receive own message
-        msg_2 = bytes((0xf0,) + tuple(_PMB_MANUFACTURER_ID) + (0x45, 0x67) + (0xf7,))
+        msg_2 = b'\xf0' + _PMB_MANUFACTURER_ID + b'\x45\x67\xf7'
 
         midi.next_receive_messages = [
             msg_2
@@ -61,7 +61,7 @@ class TestWrapper(unittest.TestCase):
         bridge.receive_outputs[msg_2] = True
 
         self.assertEqual(wrapper.receive(), None)
-        self.assertEqual(bridge.receive_calls, [msg_2])
+        self.assertEqual(bridge.receive_calls, [msg, None, msg_2])
         self.assertEqual(MockTime.sleep_calls, [0.01])
 
 
@@ -72,15 +72,14 @@ class TestWrapper(unittest.TestCase):
             midi = midi
         )
 
-        manufacturer_id = [0x00, 0x23, 0x45]
-        data = [0x45, 0x67]
+        msg = b'\xf0\x00\x23\x45\x56\x67\xf7'
 
-        wrapper.send_system_exclusive(manufacturer_id, data)
+        wrapper.send(msg)
         self.assertEqual(len(midi.messages_sent), 1)
-        self.assertEqual(midi.messages_sent[0], (0xf0,) + manufacturer_id + data + (0xf7,))
+        self.assertEqual(midi.messages_sent[0], msg)
         
-        wrapper.send_system_exclusive(manufacturer_id, data)
+        wrapper.send(msg)
         self.assertEqual(len(midi.messages_sent), 2)
-        self.assertEqual(midi.messages_sent[1], (0xf0,) + manufacturer_id + data + (0xf7,))
+        self.assertEqual(midi.messages_sent[1], msg)
 
 
