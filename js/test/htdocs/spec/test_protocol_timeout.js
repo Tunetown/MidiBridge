@@ -9,6 +9,30 @@ describe('Protocol (Timeout)', function() {
         jasmine.clock().uninstall();
     });
     
+    it('Timeout (Receive before first data chunk)', async function() {
+        jasmine.clock().mockDate(new Date(1000));
+        const sender = new JsMidiBridge();
+        const receiver = new JsMidiBridge();
+        receiver.throwExceptionsOnReceive = true;
+        const packets = [];
+        let received = null;
+        sender.sendSysex = async function(manufacturerId, data) {
+            packets.push({ manufacturerId: manufacturerId, data: data });
+        };
+        receiver.onReceiveFinish = async function(data) { received = data.data; };
+        await sender.sendString('stalled.txt', 'stalled', 100);
+        await receiver.receive(packets.shift());
+        const delayedData = packets.shift();
+
+        // As with existing receive timeouts, cleanup is triggered by a new transmission.
+        jasmine.clock().mockDate(new Date(6001));
+        await sender.sendString('active.txt', 'active', 100);
+        await receiver.receive(packets.shift());
+        await expectAsync(receiver.receive(delayedData)).toBeRejectedWithError(/Receive transmission .* not found/);
+        await receiver.receive(packets.shift());
+        expect(received).toBe('active');
+    });
+
     it('Timeout (Receive)', async function() {
 		const test = new TestProtocolTimeout();
         await test.testReceiveTimeout();

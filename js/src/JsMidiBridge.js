@@ -511,6 +511,7 @@ class JsMidiBridge {
         // Create a new transmission in the list
         const transmission = {
             lastChunk: -1,
+            time: Date.now(),
             id: transmissionIdBytes,
             type: payload.slice(0, JMB_PREFIXES_LENGTH_HALFBYTES),
             amountChunks: this.bytes2number(payload.slice(JMB_PREFIXES_LENGTH_HALFBYTES, JMB_NUMBER_SIZE_HALFBYTES + JMB_PREFIXES_LENGTH_HALFBYTES)),

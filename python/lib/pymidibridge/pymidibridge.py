@@ -365,6 +365,7 @@ class PyMidiBridge:
         # Create a new transmission in the list
         transmission = {
             _PMB_TRANSMISSION_KEY_LAST_CHUNK: -1,
+            _PMB_TRANSMISSION_KEY_TIME: int(monotonic() * 1000),
             _PMB_TRANSMISSION_KEY_ID: transmission_id_bytes,
             _PMB_TRANSMISSION_KEY_TYPE: payload[:_PMB_PREFIXES_LENGTH_HALFBYTES],
             _PMB_TRANSMISSION_KEY_AMOUNT_CHUNKS: self._bytes_2_number(payload[_PMB_PREFIXES_LENGTH_HALFBYTES:_PMB_NUMBER_SIZE_HALFBYTES + _PMB_PREFIXES_LENGTH_HALFBYTES]),
