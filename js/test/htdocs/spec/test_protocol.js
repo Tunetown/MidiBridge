@@ -89,6 +89,15 @@ describe('Protocol', function() {
         await expectAsync(bridge.sendString("foo", false, 20)).toBeRejected();
 	});	
 	
+    it('Send File: Reject empty contents before sending', async function() {
+        const bridge = new JsMidiBridge();
+        const packets = [];
+        bridge.getFile = async function() { return ''; };
+        bridge.sendSysex = async function(manufacturerId, data) { packets.push(data); };
+        await expectAsync(bridge.sendFile('empty.txt', 65)).toBeRejectedWithError('empty.txt not found or empty');
+        expect(packets).toEqual([]);
+    });
+
 	it('Request: File not found', async function() {
 		const test = new TestProtocol();
 		await test.testRequestFileNotFound();

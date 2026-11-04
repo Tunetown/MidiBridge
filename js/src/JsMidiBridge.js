@@ -235,7 +235,7 @@ class JsMidiBridge {
        
         // Check if file exists and see how many chunks we will need
         let data = await this.getFile(path);
-        if (data === null) {
+        if (data === null || data.length == 0) {
             throw new Error(path + " not found or empty");
         }
 
